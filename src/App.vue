@@ -201,7 +201,7 @@ export default {
           throw new Error(`Error fetching records: ${response.statusText}`);
         }
         const data = await response.json();
-        this.records = await Promise.all(
+        const recordsWithNulls = await Promise.all(
           data.hits.hits.map(async (record) => {
             let files = record.files.reduce((acc, f) => {
               const {
@@ -253,6 +253,9 @@ export default {
             }
           })
         );
+
+        // Filter out null records
+        this.records = recordsWithNulls.filter((record) => record !== null);
       } catch (err) {
         console.log(err);
       } finally {
@@ -405,7 +408,7 @@ export default {
     },
     plotSpatial() {
       this.records.forEach((record) => {
-        if (record.spatial) {
+        if (record && record.spatial) {
           const sourceId = "polygon-" + record.id;
           const layerId = "polygon-outline-" + record.id;
 
