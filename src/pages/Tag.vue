@@ -1413,6 +1413,7 @@ const updatePressureMarker = () => {
         {
           type: "gltf",
           obj: BIRDVIEW_MODEL_URL,
+          mtl: `${import.meta.env.BASE_URL}models/empty.mtl`,
           units: "meters",
           scale: BIRDVIEW_MODEL_SCALE,
           rotation: {
