@@ -296,6 +296,7 @@
           </div>
         </div>
         <label
+          v-if="hasPressurePath"
           class="absolute left-4 top-4 z-10 inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-white/70 backdrop-blur cursor-pointer"
         >
           <span>Bird view</span>
@@ -314,7 +315,20 @@
         <div
           class="plotly-container relative flex-1 min-h-[220px] sm:min-h-[280px] lg:min-h-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 p-2"
         >
-          <div ref="plotContainer" class="h-full w-full min-h-0 overflow-hidden"></div>
+          <div
+            v-if="hasPressurePath"
+            ref="plotContainer"
+            class="h-full w-full min-h-0 overflow-hidden"
+          ></div>
+          <div
+            v-else
+            class="absolute inset-0 flex items-center justify-center bg-black/60 text-center"
+          >
+            <div class="rounded-2xl border border-white/10 bg-black/50 px-6 py-4">
+              <p class="text-xs uppercase tracking-[0.3em] text-white/50">Pressure Data</p>
+              <p class="mt-2 font-display text-lg text-white">Not available for this tag</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -322,12 +336,13 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
 import Plotly from "plotly.js-dist-min";
 import { Threebox, THREE } from "threebox-plugin";
 import { loadTagData, loadTags } from "../lib/data";
+import { buildFallbackTimelines } from "../lib/fallbackTimeline";
 import {
   colorForIndex,
   formatLongDate,
@@ -361,6 +376,7 @@ const tagMenuButton = ref(null);
 const tagSearchContainer = ref(null);
 const timeTimeline = ref([]);
 const distanceTimeline = ref([]);
+const hasPressurePath = ref(false);
 const currentPressureIndex = ref(0);
 const isPressurePlaying = ref(false);
 const isCameraFollowEnabled = ref(false);
@@ -394,6 +410,9 @@ let outsideClickHandler;
 let pressureMarkerReady = false;
 const PLAYBACK_DAYS_PER_SEC = 5;
 const PLAYBACK_KM_PER_SEC = 200;
+const FALLBACK_TIME_STEP_DAYS = 1;
+const FALLBACK_DISTANCE_MIN_STEP_KM = 5;
+const FALLBACK_DISTANCE_TARGET_POINTS = 800;
 const BIRDVIEW_SPEED_FACTOR = 0.2;
 const SPEED_PRESETS = [
   { id: "0.5x", label: "0.5×", factor: 0.5 },
@@ -409,7 +428,6 @@ const BIRDVIEW_MODEL_URL = new URL(
   "models/flying_bird.glb",
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
-console.log(BIRDVIEW_MODEL_URL);
 const BIRDVIEW_MODEL_SCALE = 50000;
 const BIRDVIEW_MODEL_ROTATION = { pitch: 100, yaw: 178, roll: 0 };
 const BIRDVIEW_MODEL_PIVOT_FRACTION = { x: 0.5, y: 0.5, z: 0.1 };
@@ -727,6 +745,14 @@ const startPressurePlayback = () => {
     }
     const rowsPerSecond = (() => {
       if (sliderMode.value === "distance") {
+        const totalKm = Number(list[list.length - 1]?.distanceKm) - Number(list[0]?.distanceKm);
+        const avgKmPerRow =
+          Number.isFinite(totalKm) && totalKm > 0 && list.length > 1
+            ? totalKm / (list.length - 1)
+            : 0;
+        if (avgKmPerRow > 0) {
+          return PLAYBACK_KM_PER_SEC / avgKmPerRow;
+        }
         const deltas = [];
         for (let i = 1; i < list.length; i += 1) {
           const delta = Number(list[i].distanceKm) - Number(list[i - 1].distanceKm);
@@ -735,7 +761,14 @@ const startPressurePlayback = () => {
           }
         }
         const medianKmPerRow = median(deltas);
-        return medianKmPerRow ? PLAYBACK_KM_PER_SEC / medianKmPerRow : 1;
+        return medianKmPerRow > 0 ? PLAYBACK_KM_PER_SEC / medianKmPerRow : 1;
+      }
+      const totalMs = Number(list[list.length - 1]?.ms) - Number(list[0]?.ms);
+      const totalDays = Number.isFinite(totalMs) ? totalMs / (1000 * 60 * 60 * 24) : 0;
+      const avgDays =
+        totalDays > 0 && list.length > 1 ? totalDays / (list.length - 1) : 0;
+      if (avgDays > 0) {
+        return PLAYBACK_DAYS_PER_SEC / avgDays;
       }
       const deltas = [];
       for (let i = 1; i < list.length; i += 1) {
@@ -745,7 +778,7 @@ const startPressurePlayback = () => {
         }
       }
       const medianDays = median(deltas);
-      return medianDays ? PLAYBACK_DAYS_PER_SEC / medianDays : 1;
+      return medianDays > 0 ? PLAYBACK_DAYS_PER_SEC / medianDays : 1;
     })();
     const speedPreset =
       SPEED_PRESETS.find((preset) => preset.id === selectedSpeed.value)?.factor ?? 1;
@@ -2303,13 +2336,31 @@ const fetchTagData = async (tagId) => {
     tagData.value = await loadTagData(tagId);
     const rawPressure = tagData.value?.pressurepath;
     pressureData = normalizePressureData(rawPressure);
-    timeTimeline.value = buildTimeTimeline(pressureData);
-    distanceTimeline.value = buildDistanceTimeline(timeTimeline.value);
-    const availableMetrics = buildMetrics(pressureData?.values || {});
-    metrics.value = availableMetrics;
-    selectedMetric.value = availableMetrics.includes("altitude")
-      ? "altitude"
-      : availableMetrics[0] || "";
+    if (pressureData) {
+      hasPressurePath.value = true;
+      timeTimeline.value = buildTimeTimeline(pressureData);
+      distanceTimeline.value = buildDistanceTimeline(timeTimeline.value);
+      const availableMetrics = buildMetrics(pressureData?.values || {});
+      metrics.value = availableMetrics;
+      selectedMetric.value = availableMetrics.includes("altitude")
+        ? "altitude"
+        : availableMetrics[0] || "";
+    } else {
+      hasPressurePath.value = false;
+      const fallbackTimelines = buildFallbackTimelines(
+        tagData.value?.paths,
+        tagData.value?.staps,
+        {
+          timeStepDays: FALLBACK_TIME_STEP_DAYS,
+          distanceMinStepKm: FALLBACK_DISTANCE_MIN_STEP_KM,
+          distanceTargetPoints: FALLBACK_DISTANCE_TARGET_POINTS,
+        },
+      );
+      timeTimeline.value = fallbackTimelines.timeTimeline;
+      distanceTimeline.value = fallbackTimelines.distanceTimeline;
+      metrics.value = [];
+      selectedMetric.value = "";
+    }
     currentPressureIndex.value = 0;
     updateMap();
     updatePlot();
@@ -2326,6 +2377,7 @@ const fetchTagData = async (tagId) => {
     distanceTimeline.value = [];
     metrics.value = [];
     selectedMetric.value = "";
+    hasPressurePath.value = false;
     updateMap();
   }
 };
@@ -2350,6 +2402,22 @@ watch(selectedTag, (value) => {
 
 watch(selectedMetric, () => {
   updatePlot();
+});
+
+watch(hasPressurePath, (hasData) => {
+  if (hasData) {
+    nextTick(() => {
+      updatePlot();
+      updatePlotCursor();
+    });
+    return;
+  }
+  if (plotContainer.value) {
+    Plotly.purge(plotContainer.value);
+  }
+  if (isCameraFollowEnabled.value) {
+    isCameraFollowEnabled.value = false;
+  }
 });
 
 watch(currentPressureIndex, () => {
