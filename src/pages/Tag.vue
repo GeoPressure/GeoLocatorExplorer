@@ -242,12 +242,7 @@
                   >
                     <path d="M8 5.5v13l11-6.5-11-6.5Z"></path>
                   </svg>
-                  <svg
-                    v-else
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    class="h-4 w-4 fill-current"
-                  >
+                  <svg v-else viewBox="0 0 24 24" aria-hidden="true" class="h-4 w-4 fill-current">
                     <path d="M7 5h4v14H7zm6 0h4v14h-4z"></path>
                   </svg>
                 </button>
@@ -410,10 +405,10 @@ const BIRDVIEW_MIN_ALTITUDE = 85000;
 const BIRDVIEW_ALTITUDE_OFFSET = 35000;
 const BIRDVIEW_BEHIND_KM = 170;
 const CAMERA_BEARING_SMOOTH_MS = 900;
-console.log("Base URL:", import.meta.env.BASE_URL);
-console.log("Window location:", window.location);
-
-const BIRDVIEW_MODEL_URL = `${import.meta.env.BASE_URL}models/flying_bird.glb`;
+const BIRDVIEW_MODEL_URL = new URL(
+  "models/flying_bird.glb",
+  `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
+).toString();
 const BIRDVIEW_MODEL_SCALE = 50000;
 const BIRDVIEW_MODEL_ROTATION = { pitch: 100, yaw: 178, roll: 0 };
 const BIRDVIEW_MODEL_PIVOT_FRACTION = { x: 0.5, y: 0.5, z: 0.1 };
