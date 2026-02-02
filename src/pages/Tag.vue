@@ -445,7 +445,7 @@ const BIRDVIEW_MODEL_URL = new URL(
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
 const BIRDVIEW_MODEL_SCALE = 50000;
-const BIRDVIEW_MODEL_ROTATION = { pitch: -70, yaw: 180, roll: 0 };
+const BIRDVIEW_MODEL_ROTATION = { pitch: 100, yaw: 178, roll: 0 };
 const BIRDVIEW_MODEL_PIVOT_FRACTION = { x: 0.5, y: 0.5, z: 0.1 };
 const PRESSURE_CURSOR_COLOR = "#ef4444";
 const BIRDVIEW_MODEL_COLOR = PRESSURE_CURSOR_COLOR;
