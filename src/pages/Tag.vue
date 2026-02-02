@@ -233,8 +233,22 @@
                   @click="togglePressurePlayback"
                   aria-label="Play or pause"
                 >
-                  <i v-if="!isPressurePlaying" class="bi bi-play-fill text-lg leading-none"></i>
-                  <i v-else class="bi bi-pause-fill text-lg leading-none"></i>
+                  <svg
+                    v-if="!isPressurePlaying"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="h-4 w-4 fill-current"
+                  >
+                    <path d="M8 5.5v13l11-6.5-11-6.5Z"></path>
+                  </svg>
+                  <svg
+                    v-else
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="h-4 w-4 fill-current"
+                  >
+                    <path d="M7 5h4v14H7zm6 0h4v14h-4z"></path>
+                  </svg>
                 </button>
                 <select
                   v-model="selectedSpeed"
