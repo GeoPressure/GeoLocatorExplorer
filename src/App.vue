@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-[color:var(--ink)] text-[color:var(--cream)]">
+  <div class="app-root bg-[color:var(--ink)] text-[color:var(--cream)]">
     <header class="fixed inset-x-0 top-0 z-30">
       <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         <div class="flex items-center gap-3">
