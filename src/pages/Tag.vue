@@ -214,6 +214,7 @@
       </div>
 
       <div
+        ref="mapWrapper"
         class="relative h-full min-h-[400px] overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--slate)] lg:min-h-0"
       >
         <div ref="mapContainer" class="h-full w-full"></div>
@@ -349,6 +350,7 @@ import {
 
 const route = useRoute();
 const router = useRouter();
+const mapWrapper = ref(null);
 const mapContainer = ref(null);
 const plotContainer = ref(null);
 const tags = ref([]);
@@ -2358,6 +2360,10 @@ onMounted(async () => {
   mapInstance.on("load", () => {
     mapReady = true;
     mapInstance.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
+    mapInstance.addControl(
+      new mapboxgl.FullscreenControl({ container: mapWrapper.value || mapContainer.value }),
+      "top-right",
+    );
     if (!isMobile.value) {
       mapInstance.addControl(
         new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }),
