@@ -414,7 +414,7 @@ const togglePanel = () => {
 let mapInstance;
 let threebox;
 let pressureLines = [];
-const terrainExaggeration = 5;
+const terrainExaggeration = 8;
 let pressureData;
 let resizeHandler;
 let mapReady = false;
@@ -444,11 +444,7 @@ const BIRDVIEW_MODEL_URL = new URL(
   "models/flying_bird.glb",
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
-const BIRDVIEW_MODEL_SCALE = 50000;
-const BIRDVIEW_MODEL_ROTATION = { pitch: 100, yaw: 178, roll: 0 };
-const BIRDVIEW_MODEL_PIVOT_FRACTION = { x: 0.5, y: 0.5, z: 0.1 };
 const PRESSURE_CURSOR_COLOR = "#ef4444";
-const BIRDVIEW_MODEL_COLOR = PRESSURE_CURSOR_COLOR;
 const PRESSURE_PATH_COLOR = "#f8fafc";
 let savedCameraState = null;
 let pressureMarker3d = null;
@@ -1081,68 +1077,8 @@ const applyMarkerRotation = (heading) => {
     return;
   }
   if (pressureMarker3d.model) {
-    pressureMarker3d.model.rotation.set(
-      THREE.MathUtils.degToRad(BIRDVIEW_MODEL_ROTATION.pitch),
-      THREE.MathUtils.degToRad(BIRDVIEW_MODEL_ROTATION.yaw - heading),
-      THREE.MathUtils.degToRad(BIRDVIEW_MODEL_ROTATION.roll),
-    );
+    pressureMarker3d.model.rotation.set(0, 0, THREE.MathUtils.degToRad(-heading + 180));
   }
-};
-
-const recenterModelPivot = (obj) => {
-  if (!obj) {
-    return;
-  }
-  const model = obj.model || obj;
-  if (!model || typeof model.traverse !== "function") {
-    return;
-  }
-  const box = new THREE.Box3().setFromObject(model);
-  if (!box.isEmpty()) {
-    const size = new THREE.Vector3();
-    const offset = new THREE.Vector3();
-    box.getSize(size);
-    offset.set(
-      box.min.x + size.x * BIRDVIEW_MODEL_PIVOT_FRACTION.x,
-      box.min.y + size.y * BIRDVIEW_MODEL_PIVOT_FRACTION.y,
-      box.min.z + size.z * BIRDVIEW_MODEL_PIVOT_FRACTION.z,
-    );
-    model.position.sub(offset);
-  }
-};
-
-const tintBirdModel = (obj, colorHex = BIRDVIEW_MODEL_COLOR) => {
-  if (!obj) {
-    return;
-  }
-  const model = obj.model || obj;
-  if (!model || typeof model.traverse !== "function") {
-    return;
-  }
-  const tint = new THREE.Color(colorHex).convertSRGBToLinear();
-  model.traverse((child) => {
-    if (!child.isMesh || !child.material) {
-      return;
-    }
-    const materials = Array.isArray(child.material) ? child.material : [child.material];
-    const flat = materials.map((material) => {
-      if (!material) {
-        return material;
-      }
-      return new THREE.MeshBasicMaterial({
-        color: tint,
-        side: material.side ?? THREE.FrontSide,
-        transparent: false,
-        opacity: 1,
-        fog: false,
-        toneMapped: false,
-        depthWrite: true,
-        depthTest: true,
-        vertexColors: false,
-      });
-    });
-    child.material = Array.isArray(child.material) ? flat : flat[0];
-  });
 };
 
 const updatePressureMarker = () => {
@@ -1178,20 +1114,13 @@ const updatePressureMarker = () => {
           obj: BIRDVIEW_MODEL_URL,
           mtl: `${import.meta.env.BASE_URL}models/empty.mtl`,
           units: "meters",
-          scale: BIRDVIEW_MODEL_SCALE,
-          rotation: {
-            x: BIRDVIEW_MODEL_ROTATION.pitch,
-            y: BIRDVIEW_MODEL_ROTATION.yaw,
-            z: BIRDVIEW_MODEL_ROTATION.roll,
-          },
+          scale: 50000,
           anchor: "center",
         },
         (model) => {
           pressureMarker3d = model;
           pressureMarkerLoading = false;
           threebox.add(pressureMarker3d);
-          recenterModelPivot(pressureMarker3d);
-          tintBirdModel(pressureMarker3d);
           startPressureMarkerAnimation();
           const altitude = Math.max(0, point.altitude) * terrainExaggeration;
           pressureMarker3d.setCoords([point.lon, point.lat, altitude]);
