@@ -5,7 +5,9 @@ export const projectSlug = (value) => {
 };
 
 export const sexSymbol = (value) => {
-  const cleaned = String(value || "").trim().toLowerCase();
+  const cleaned = String(value || "")
+    .trim()
+    .toLowerCase();
   if (["m", "male"].includes(cleaned)) {
     return "♂";
   }

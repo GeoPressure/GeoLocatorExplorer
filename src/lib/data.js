@@ -39,7 +39,10 @@ export function loadProjectData(projectId) {
   return loadJSON(`data/projects/${projectFileSafe(projectId)}.json`);
 }
 
-const tagFileSafe = (value) => String(value || "").trim().replace(/[^A-Za-z0-9_-]/g, "_");
+const tagFileSafe = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/[^A-Za-z0-9_-]/g, "_");
 
 export function loadTagData(tagId) {
   return loadJSON(`data/tags/${tagFileSafe(tagId)}.json`);

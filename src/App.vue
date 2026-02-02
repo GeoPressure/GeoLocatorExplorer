@@ -42,19 +42,11 @@
         class="border-t border-white/10 bg-black/40 backdrop-blur-md md:hidden"
       >
         <nav class="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-4 text-sm font-semibold">
-          <RouterLink to="/" :class="navClass('home')" @click="closeMenu">
-            Globe
-          </RouterLink>
-          <RouterLink
-            to="/project"
-            :class="navClass('project')"
-            @click="closeMenu"
-          >
+          <RouterLink to="/" :class="navClass('home')" @click="closeMenu"> Globe </RouterLink>
+          <RouterLink to="/project" :class="navClass('project')" @click="closeMenu">
             Projects
           </RouterLink>
-          <RouterLink to="/tag" :class="navClass('tag')" @click="closeMenu">
-            Tags
-          </RouterLink>
+          <RouterLink to="/tag" :class="navClass('tag')" @click="closeMenu"> Tags </RouterLink>
         </nav>
       </div>
     </header>

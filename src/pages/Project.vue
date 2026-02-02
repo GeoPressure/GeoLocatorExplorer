@@ -359,7 +359,13 @@ import {
   ComboboxOptions,
 } from "@headlessui/vue";
 import { loadProjectData, loadProjects } from "../lib/data";
-import { colorForIndex, formatShortDate, normalizeKeywords, projectSlug, sexSymbol } from "../lib/format";
+import {
+  colorForIndex,
+  formatShortDate,
+  normalizeKeywords,
+  projectSlug,
+  sexSymbol,
+} from "../lib/format";
 import { MAPBOX_TOKEN } from "../lib/config";
 import { buildTagPopupHtml } from "../lib/popup";
 import { createSidePopup } from "../lib/mapbox";
