@@ -16,11 +16,9 @@
           </div>
         </div>
         <nav class="hidden items-center gap-3 text-sm font-semibold md:flex">
-          <RouterLink to="/" class="nav-pill" active-class="nav-pill-active"> Globe </RouterLink>
-          <RouterLink to="/project" class="nav-pill" active-class="nav-pill-active">
-            Projects
-          </RouterLink>
-          <RouterLink to="/tag" class="nav-pill" active-class="nav-pill-active"> Tags </RouterLink>
+          <RouterLink to="/" :class="navClass('home')"> Globe </RouterLink>
+          <RouterLink to="/project" :class="navClass('project')"> Projects </RouterLink>
+          <RouterLink to="/tag" :class="navClass('tag')"> Tags </RouterLink>
         </nav>
         <button
           type="button"
@@ -44,18 +42,17 @@
         class="border-t border-white/10 bg-black/40 backdrop-blur-md md:hidden"
       >
         <nav class="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-4 text-sm font-semibold">
-          <RouterLink to="/" class="nav-pill" active-class="nav-pill-active" @click="closeMenu">
+          <RouterLink to="/" :class="navClass('home')" @click="closeMenu">
             Globe
           </RouterLink>
           <RouterLink
             to="/project"
-            class="nav-pill"
-            active-class="nav-pill-active"
+            :class="navClass('project')"
             @click="closeMenu"
           >
             Projects
           </RouterLink>
-          <RouterLink to="/tag" class="nav-pill" active-class="nav-pill-active" @click="closeMenu">
+          <RouterLink to="/tag" :class="navClass('tag')" @click="closeMenu">
             Tags
           </RouterLink>
         </nav>
@@ -83,4 +80,6 @@ watch(
     isMenuOpen.value = false;
   },
 );
+
+const navClass = (name) => ["nav-pill", route.name === name ? "nav-pill-active" : ""];
 </script>
