@@ -1,8 +1,7 @@
 import { createApp } from "vue";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "./style.css";
 import App from "./App.vue";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap";
-import "bootstrap-icons/font/bootstrap-icons.css";
+import router from "./router";
 
-createApp(App).mount("#app");
+createApp(App).use(router).mount("#app");

@@ -1,15 +1,150 @@
-#map {
-  height: 100vh;
+@import "tailwindcss";
+@reference "tailwindcss";
+
+:root {
+  --ink: #05070b;
+  --night: #0c111b;
+  --slate: #141c2a;
+  --mist: #94a3b8;
+  --cream: #f5f2e8;
+  --teal: #56f0c4;
+  --ember: #f5b470;
+  --accent: #7dd3fc;
 }
+
 body {
   margin: 0;
+  min-height: 100vh;
+  font-family: "Sora", "IBM Plex Sans", "SF Pro Text", sans-serif;
+  background: var(--ink);
+  color: var(--cream);
 }
-.orcid-logo {
-  width: 16px;
-  vertical-align: baseline;
-  margin-left: 4px;
-  transition: opacity 0.2s;
+
+#app {
+  min-height: 100vh;
 }
-.orcid-logo:hover {
-  opacity: 0.7;
+
+.map-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Space Grotesk", "Sora", "IBM Plex Sans", sans-serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .nav-pill {
+    @apply rounded-full border border-white/10 bg-[rgba(12,17,27,0.8)] px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70 transition;
+  }
+  .nav-pill:hover {
+    @apply border-white/30 text-white;
+  }
+  .nav-pill-active {
+    @apply border-white/60 bg-white/10 text-white;
+  }
+  .panel {
+    @apply rounded-2xl border border-white/10 bg-[rgba(12,17,27,0.8)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur;
+  }
+  .panel-title {
+    @apply text-lg uppercase tracking-[0.2em] text-white/80;
+    font-family: "Space Grotesk", "Sora", "IBM Plex Sans", sans-serif;
+    letter-spacing: -0.01em;
+  }
+  .stat-pill {
+    @apply rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/60;
+  }
+  .button-primary {
+    @apply rounded-full bg-[color:var(--teal)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black transition;
+  }
+  .button-ghost {
+    @apply rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 transition;
+  }
+}
+
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
+}
+
+.mapboxgl-popup-content {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 17, 27, 0.96);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  min-width: 300px;
+  padding: 14px 16px;
+  color: var(--cream);
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: rgba(12, 17, 27, 0.92) !important;
+}
+
+
+.pressure-slider {
+  accent-color: #ef4444;
+  height: 22px;
+  background: transparent;
+}
+
+.pressure-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pressure-slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 22px;
+  width: 22px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 2px solid rgba(0, 0, 0, 0.6);
+  margin-top: -7px;
+}
+
+.pressure-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pressure-slider::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 999px;
+  background: #ef4444;
+  border: 2px solid rgba(0, 0, 0, 0.6);
+}
+
+.project-description p {
+  margin: 0.75rem 0 0;
+}
+
+.project-description p:first-child {
+  margin-top: 0;
+}
+
+.project-description a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+.project-description a:hover {
+  color: var(--cream);
+}
+
+.project-description ul {
+  margin: 0.75rem 0 0.75rem 1.2rem;
+  list-style: disc;
+}
+
+.plotly-container .js-plotly-plot {
+  font-family: "IBM Plex Sans", "Sora", sans-serif !important;
 }
