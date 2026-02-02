@@ -312,7 +312,7 @@
 
       <div class="panel h-full min-h-0 lg:col-span-2 flex flex-col p-0 sm:p-6">
         <div
-          class="plotly-container flex-1 min-h-[300px] overflow-hidden rounded-xl border border-white/10 bg-black/40 p-2"
+          class="plotly-container relative flex-1 min-h-[220px] sm:min-h-[280px] lg:min-h-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 p-2"
         >
           <div ref="plotContainer" class="h-full w-full min-h-0 overflow-hidden"></div>
         </div>
@@ -1549,7 +1549,7 @@ const updateCameraForPressurePoint = () => {
 };
 
 const updatePlotCursor = () => {
-  if (!plotContainer.value) {
+  if (!plotContainer.value || !plotContainer.value._fullLayout) {
     return;
   }
   if (!currentPressurePoint.value) {
