@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "packageManager": "npm@11.7.0",
   "description": "Explore the migration movements of small birds tracked with multi-sensor geolocators and open GeoLocator Data Packages.",
   "scripts": {
     "dev": "vite",
