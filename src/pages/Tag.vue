@@ -314,7 +314,7 @@
         </label>
       </div>
 
-      <div class="panel h-full min-h-0 lg:col-span-2 flex flex-col">
+      <div class="panel h-full min-h-0 lg:col-span-2 flex flex-col p-0 sm:p-6">
         <div
           class="plotly-container flex-1 min-h-[300px] overflow-hidden rounded-xl border border-white/10 bg-black/40 p-2"
         >
