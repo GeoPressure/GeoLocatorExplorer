@@ -3,7 +3,7 @@
     <div
       class="grid w-full grid-cols-1 gap-6 lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[minmax(360px,520px)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] xl:grid-rows-[minmax(50vh,1fr)_minmax(0,1fr)]"
     >
-      <div class="panel h-full relative z-20 overflow-y-auto">
+      <div class="panel h-full relative z-20 overflow-visible sm:overflow-y-auto">
         <div class="grid gap-4">
           <div ref="tagSearchContainer">
             <Combobox v-model="selectedTag" as="div" class="relative">
@@ -409,6 +409,7 @@ const BIRDVIEW_MODEL_URL = new URL(
   "models/flying_bird.glb",
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
+console.log(BIRDVIEW_MODEL_URL);
 const BIRDVIEW_MODEL_SCALE = 50000;
 const BIRDVIEW_MODEL_ROTATION = { pitch: 100, yaw: 178, roll: 0 };
 const BIRDVIEW_MODEL_PIVOT_FRACTION = { x: 0.5, y: 0.5, z: 0.1 };
