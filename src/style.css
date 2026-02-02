@@ -18,10 +18,31 @@ body {
   font-family: "Sora", "IBM Plex Sans", "SF Pro Text", sans-serif;
   background: var(--ink);
   color: var(--cream);
+  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(12, 17, 27, 0.8);
+  scrollbar-width: thin;
 }
 
 #app {
   min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(12, 17, 27, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 2px solid rgba(12, 17, 27, 0.8);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .map-root {
