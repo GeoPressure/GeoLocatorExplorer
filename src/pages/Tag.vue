@@ -410,6 +410,9 @@ const BIRDVIEW_MIN_ALTITUDE = 85000;
 const BIRDVIEW_ALTITUDE_OFFSET = 35000;
 const BIRDVIEW_BEHIND_KM = 170;
 const CAMERA_BEARING_SMOOTH_MS = 900;
+console.log("Base URL:", import.meta.env.BASE_URL);
+console.log("Window location:", window.location);
+
 const BIRDVIEW_MODEL_URL = `${import.meta.env.BASE_URL}models/flying_bird.glb`;
 const BIRDVIEW_MODEL_SCALE = 50000;
 const BIRDVIEW_MODEL_ROTATION = { pitch: 100, yaw: 178, roll: 0 };
