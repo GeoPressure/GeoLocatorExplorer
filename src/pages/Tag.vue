@@ -325,7 +325,7 @@
             class="absolute inset-0 flex items-center justify-center bg-black/60 text-center"
           >
             <div class="rounded-2xl border border-white/10 bg-black/50 px-6 py-4">
-              <p class="text-xs uppercase tracking-[0.3em] text-white/50">Pressure Data</p>
+              <p class="text-xs uppercase tracking-[0.3em] text-white/50">Pressurepath Data</p>
               <p class="mt-2 font-display text-lg text-white">Not available for this tag</p>
             </div>
           </div>
