@@ -9,25 +9,25 @@ This visualization tool shows all Geolocator studies submitted to the [Geolocato
 ### Global view
 
 [<img width="1199" height="629" alt="Globe view screenshot" src="https://github.com/user-attachments/assets/00395512-95c1-4395-8f96-2ee7fdb649a3" />
-](https://raphaelnussbaumer.com/GeoLocatorExplorer/)
-[Globe view](https://raphaelnussbaumer.com/GeoLocatorExplorer/) — big-picture look at all projects and tags.
+](https://geopressure.org/GeoLocatorExplorer/)
+[Globe view](https://geopressure.org/GeoLocatorExplorer/) — big-picture look at all projects and tags.
 
 ### Project view
 
 [<img width="1199" height="629" alt="Project view screenshot" src="https://github.com/user-attachments/assets/fbdc9cf6-0a46-41a1-8252-be2a576d9112" />
-](https://raphaelnussbaumer.com/GeoLocatorExplorer/project/)
+](https://geopressure.org/GeoLocatorExplorer/project/)
 
-[Project view](https://raphaelnussbaumer.com/GeoLocatorExplorer/project/) — metadata, species context, and map exploration.
+[Project view](https://geopressure.org/GeoLocatorExplorer/project/) — metadata, species context, and map exploration.
 
 ### Tag view
 
 [<img width="1577" height="1090" alt="Tag view screenshot" src="https://github.com/user-attachments/assets/2c09a85a-cbee-4ecf-8998-c56c7421ea5d" />
-](https://raphaelnussbaumer.com/GeoLocatorExplorer/tag/)
+](https://geopressure.org/GeoLocatorExplorer/tag/)
 
-[Tag view](https://raphaelnussbaumer.com/GeoLocatorExplorer/tag/) — timelines, pressure paths, and a 3D bird model that follows the track.
+[Tag view](https://geopressure.org/GeoLocatorExplorer/tag/) — timelines, pressure paths, and a 3D bird model that follows the track.
 
 [<img width="927" height="583" alt="BirdView screenshot" src="https://github.com/user-attachments/assets/d96cbe0f-1713-4761-bfb4-a5861b65224d" />
-](https://raphaelnussbaumer.com/GeoLocatorExplorer/tag/)
+](https://geopressure.org/GeoLocatorExplorer/tag/)
 
 Try BirdView mode in full screen.
 
