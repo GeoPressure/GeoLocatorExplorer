@@ -11,7 +11,6 @@
     "dev": "vite",
     "prebuild": "npm run fix:threebox-encoding",
     "build": "vite build",
-    "build:data": "python3 scripts/process_data.py",
     "postbuild": "cp dist/index.html dist/404.html",
     "preview": "vite preview"
   },

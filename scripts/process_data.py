@@ -14,10 +14,7 @@ import argparse
 import csv
 import datetime as dt
 import json
-import os
 import shutil
-import subprocess
-import urllib.request
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -38,72 +35,200 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_env_file(path: Path) -> None:
-    if not path.exists():
-        return
-    with path.open(encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip("'").strip('"')
-            if key and key not in os.environ:
-                os.environ[key] = value
-
-
-def load_env() -> None:
-    load_env_file(Path(".env"))
-    load_env_file(Path(".env.local"))
-
-
-def parse_json_maybe(value: Optional[str]) -> Optional[Any]:
-    if value is None:
-        return None
-    text = value.strip()
-    if not text:
-        return None
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
-    if text.startswith("\"") and text.endswith("\""):
-        return text.strip("\"")
-    return text
-
-
 def parse_taxonomic(value: Optional[str]) -> List[str]:
-    parsed = parse_json_maybe(value)
-    if parsed is None:
+    if value is None:
         return []
-    if isinstance(parsed, list):
-        return [str(item).strip("\"") for item in parsed if str(item).strip("\"")]
-    return [str(parsed).strip("\"")]
+    text = str(value).strip().strip("\"")
+    if not text:
+        return []
+    return [item.strip().strip("\"") for item in text.split(",") if item.strip().strip("\"")]
 
 
 def to_float(value: Optional[str]) -> Optional[float]:
     if value is None:
         return None
     text = str(value).strip()
-    if not text:
+    if not text or text.upper() == "NA":
         return None
-    try:
-        return float(text)
-    except Exception:
-        return None
+    return float(text)
 
 
 def to_int(value: Optional[str]) -> Optional[int]:
     if value is None:
         return None
     text = str(value).strip()
+    if not text or text.upper() == "NA":
+        return None
+    return int(float(text))
+
+
+def parse_csv_contributors(value: str) -> List[Dict[str, Any]]:
+    text = value.strip()
     if not text:
-        return None
-    try:
-        return int(float(text))
-    except Exception:
-        return None
+        return []
+    if ";" in text:
+        names = [item.strip() for item in text.split(";") if item.strip()]
+        return [{"title": name} for name in names]
+    parts = [item.strip() for item in text.split(",") if item.strip()]
+    if not parts:
+        return []
+    if len(parts) == 1:
+        return [{"title": parts[0]}]
+    contributors: List[Dict[str, Any]] = []
+    index = 0
+    while index < len(parts):
+        if index + 1 < len(parts):
+            title = f"{parts[index]}, {parts[index + 1]}"
+            index += 2
+        else:
+            title = parts[index]
+            index += 1
+        contributors.append({"title": title})
+    return contributors
+
+
+def parse_csv_licenses(value: str) -> List[Dict[str, Any]]:
+    text = value.strip()
+    if not text:
+        return []
+    items = [item.strip() for item in text.split(";") if item.strip()]
+    licenses: List[Dict[str, Any]] = []
+    for item in items:
+        code = ""
+        match = re.search(r"\(([^()]+)\)\s*$", item)
+        if match:
+            code = match.group(1).strip().lower()
+        licenses.append({"title": item, "name": code or item, "path": ""})
+    return licenses
+
+
+def parse_csv_related_identifiers(value: str) -> List[Dict[str, Any]]:
+    text = value.strip()
+    if not text:
+        return []
+    items = [item.strip() for item in text.split(",") if item.strip()]
+    related: List[Dict[str, Any]] = []
+    for item in items:
+        if ":" in item:
+            relation_raw, identifier_raw = item.split(":", 1)
+            relation_type = relation_raw.strip()
+            identifier = identifier_raw.strip()
+        else:
+            relation_type = ""
+            identifier = item
+        if not identifier:
+            continue
+        identifier_type = "other"
+        doi_match = re.match(r"^(?:https?://doi\.org/)?(10\.\S+)$", identifier, re.IGNORECASE)
+        if doi_match:
+            identifier = doi_match.group(1)
+            identifier_type = "doi"
+        elif re.match(r"^https?://", identifier, re.IGNORECASE):
+            identifier_type = "url"
+        related.append(
+            {
+                "relationType": relation_type,
+                "relatedIdentifier": identifier,
+                "relatedIdentifierType": identifier_type,
+            }
+        )
+    return related
+
+
+def parse_datapackages_csv(path: Path) -> List[Dict[str, Any]]:
+    count_keys = [
+        "tags",
+        "measurements",
+        "light",
+        "pressure",
+        "activity",
+        "temperature_external",
+        "temperature_internal",
+        "magnetic",
+        "wet_count",
+        "conductivity",
+        "paths",
+        "pressurepaths",
+    ]
+    required_columns = {
+        "datapackage_id",
+        "title",
+        "version",
+        "created",
+        "status",
+        "access_status",
+        "embargo",
+        "conceptid",
+        "codeRepository",
+        "homepage",
+        "contributors",
+        "licenses",
+        "keywords",
+        "grants",
+        "relatedIdentifiers",
+        "temporal_start",
+        "temporal_end",
+        "taxonomic",
+        "bibliographicCitation",
+        *[f"numberTags_{key}" for key in count_keys],
+    }
+    rows: List[Dict[str, Any]] = []
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        header = set(reader.fieldnames or [])
+        missing_columns = sorted(required_columns - header)
+        if missing_columns:
+            raise SystemExit(
+                f"Missing required columns in {path.name}: {', '.join(missing_columns)}"
+            )
+        for raw in reader:
+            project_id = raw["datapackage_id"].strip()
+            if not project_id:
+                raise SystemExit("Missing datapackage_id in datapackages.csv.")
+            concept_id = raw["conceptid"].strip()
+            counts: Dict[str, Optional[int]] = {
+                key: to_int(raw[f"numberTags_{key}"]) for key in count_keys
+            }
+
+            temporal_start = raw["temporal_start"].strip()
+            temporal_end = raw["temporal_end"].strip()
+            temporal = None
+            if temporal_start or temporal_end:
+                temporal = {"start": temporal_start, "end": temporal_end}
+
+            record: Dict[str, Any] = {
+                "id": project_id,
+                "concept_id": concept_id,
+                "title": raw["title"].strip(),
+                "version": raw["version"].strip(),
+                "created": raw["created"].strip(),
+                "status": raw["status"].strip(),
+                "access_status": raw["access_status"].strip(),
+                "embargo": raw["embargo"].strip(),
+                "repository": raw["codeRepository"].strip(),
+                "homepage": raw["homepage"].strip(),
+                "keywords": raw["keywords"].strip(),
+                "grants": raw["grants"].strip(),
+                "bibliographicCitation": raw["bibliographicCitation"].strip(),
+                "taxonomic": parse_taxonomic(raw["taxonomic"]),
+                "numberTags": counts,
+                "contributors": parse_csv_contributors(raw["contributors"]),
+                "licenses": parse_csv_licenses(raw["licenses"]),
+                "relatedIdentifiers": parse_csv_related_identifiers(raw["relatedIdentifiers"]),
+            }
+            if temporal is not None:
+                record["temporal"] = temporal
+            rows.append(record)
+    return rows
+
+
+def load_datapackage_records(csv_path: Path) -> List[Dict[str, Any]]:
+    if not csv_path.exists():
+        raise SystemExit(f"Missing {csv_path}")
+    rows = parse_datapackages_csv(csv_path)
+    if not rows:
+        raise SystemExit("datapackages.csv could not be parsed.")
+    return rows
 
 
 def round_decimal(value: Any, digits: int) -> Optional[float]:
@@ -135,29 +260,13 @@ def transform_rows(rows: Dict[str, List[Any]], transforms: Dict[str, Any]) -> Di
     return updated
 
 
-def parse_time(value: Optional[str]) -> Optional[int]:
-    if value is None:
-        return None
-    text = value.strip()
-    if not text:
-        return None
-    try:
-        parsed = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
-        return int(parsed.timestamp() * 1000)
-    except Exception:
-        return None
-
-
 def parse_datetime(value: Optional[str]) -> Optional[dt.datetime]:
     if value is None:
         return None
     text = value.strip()
     if not text:
         return None
-    try:
-        return dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except Exception:
-        return None
+    return dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
 def round_datetime_minute(value: Any) -> Optional[str]:
@@ -194,31 +303,18 @@ def reset_output_dir(output_dir: Path) -> None:
             path.unlink()
 
 
-def normalize_raw_value(value: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        return value if value != "" else None
-    return value
-
-
 def load_resource_descriptors(datapackage_path: Path) -> Dict[str, Dict[str, Any]]:
     with datapackage_path.open(encoding="utf-8") as handle:
         data = json.load(handle)
-    if isinstance(data, list):
-        data = data[0] if data else {}
     resources = {}
     base_dir = datapackage_path.parent
-    for resource in data.get("resources", []):
-        name = resource.get("name")
-        if not name:
-            continue
-        schema = resource.get("schema") or {}
-        fields = schema.get("fields") or []
-        path_value = resource.get("path") or ""
+    for resource in data["resources"]:
+        name = resource["name"]
+        fields = resource["schema"]["fields"]
+        path_value = resource["path"]
         resources[name] = {
             "name": name,
-            "path": str((base_dir / path_value).resolve()) if path_value else "",
+            "path": str((base_dir / path_value).resolve()),
             "fields": fields,
         }
     return resources
@@ -245,38 +341,22 @@ def pandas_dtype_map(fields: List[Dict[str, Any]]) -> Dict[str, str]:
 
 
 def process_projects(
-    datapackage_path: Path,
+    records: List[Dict[str, Any]],
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Dict[str, Any]], Dict[str, str]]:
     projects: List[Dict[str, Any]] = []
     ordered_projects: List[Dict[str, Any]] = []
     project_index: Dict[str, Dict[str, Any]] = {}
     record_to_project: Dict[str, str] = {}
 
-    with datapackage_path.open(encoding="utf-8") as handle:
-        data = json.load(handle)
+    for row in records:
+        taxonomic = [normalize_species(name) for name in row["taxonomic"]]
+        counts = {key: to_int(value) for key, value in row["numberTags"].items()}
 
-    if not isinstance(data, list):
-        raise SystemExit("datapackages.json must be a list of records.")
-
-    for row in data:
-        tax_raw = row.get("taxonomic")
-        if isinstance(tax_raw, list):
-            taxonomic = [normalize_species(str(name)) for name in tax_raw]
-        elif isinstance(tax_raw, str):
-            taxonomic = [normalize_species(name) for name in parse_taxonomic(tax_raw)]
-        else:
-            taxonomic = []
-
-        counts: Dict[str, Optional[int]] = {}
-        if isinstance(row.get("numberTags"), dict):
-            for key, value in row.get("numberTags", {}).items():
-                counts[key] = to_int(value)
-
-        record_id = (row.get("id") or "").strip()
-        concept_id = (row.get("concept_id") or "").strip()
+        record_id = row["id"].strip()
+        concept_id = row["concept_id"].strip()
         if not record_id:
             title = row.get("title") or "unknown"
-            raise SystemExit(f"Project missing id in datapackages.json: {title}")
+            raise SystemExit(f"Project missing id in datapackages.csv: {title}")
 
         concept_numeric = to_concept_id(concept_id) or to_concept_id(record_id)
         concept_doi = to_concept_doi(concept_numeric)
@@ -291,24 +371,14 @@ def process_projects(
         project["id"] = project_id
         project["taxonomic"] = taxonomic
         project["counts"] = counts
-        project["description"] = normalize_description(project.get("description"))
-        related = project.get("relatedIdentifiers")
-        if isinstance(related, list):
-            updated = []
-            for entry in related:
-                if not isinstance(entry, dict):
-                    updated.append(entry)
-                    continue
-                relation = entry.get("relationType")
-                if relation:
-                    entry = dict(entry)
-                    entry["relationType"] = humanize_relation_type(relation)
-                updated.append(entry)
-            project["relatedIdentifiers"] = updated
+        project["relatedIdentifiers"] = [
+            {**entry, "relationType": humanize_relation_type(entry.get("relationType", ""))}
+            for entry in project.get("relatedIdentifiers", [])
+        ]
         projects.append(project)
 
         if project_id in project_index:
-            raise SystemExit(f"Duplicate project id in datapackages.json: {project_id}")
+            raise SystemExit(f"Duplicate project id in datapackages.csv: {project_id}")
         project_index[project_id] = project
         record_to_project[normalize_doi(record_id)] = project_id
         if concept_doi:
@@ -318,12 +388,9 @@ def process_projects(
 
     def is_embargoed(project: Dict[str, Any]) -> bool:
         embargo = project.get("embargo")
-        if not embargo:
+        if not embargo or str(embargo).strip().upper() == "NA":
             return False
-        try:
-            embargo_dt = dt.datetime.fromisoformat(str(embargo).replace("Z", "+00:00"))
-        except ValueError:
-            return False
+        embargo_dt = dt.datetime.fromisoformat(str(embargo).replace("Z", "+00:00"))
         return embargo_dt.date() > dt.date.today()
 
     ordered_projects = sorted(
@@ -420,32 +487,25 @@ def to_concept_doi(concept_id: str) -> str:
 
 def build_taxa_objects(
     taxonomic: List[str],
-    taxonomy_lookup: Dict[str, Dict[str, str]],
-    ebirdst_species: set,
+    species_lookup: Dict[str, Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     taxa: List[Dict[str, Any]] = []
     for name in taxonomic:
         scientific = normalize_species(name)
-        ebird = taxonomy_lookup.get(scientific)
+        species = species_lookup.get(scientific)
+        if not species:
+            raise SystemExit(f"Missing species mapping in species.csv for: {scientific}")
         taxa.append(
             {
-                "scientific_name": scientific,
-                "common_name": ebird.get("common_name") if ebird else None,
-                "species_code": ebird.get("species_code") if ebird else None,
-                "in_ebirdst": scientific in ebirdst_species,
+                "scientific_name": species["scientific_name"],
+                "common_name": species["common_name"],
+                "species_code": species["species_code"],
+                "in_ebirdst": species["in_ebirdst"],
+                "birdlife_factsheet_url": species["birdlife_factsheet_url"],
+                "birds_of_the_world_url": species["birds_of_the_world_url"],
             }
         )
     return taxa
-
-
-def normalize_description(value: Any) -> Any:
-    if not isinstance(value, str):
-        return value
-    cleaned = value
-    cleaned = cleaned.replace("<p>&nbsp;</p>", "")
-    cleaned = cleaned.replace("<p> </p>", "")
-    cleaned = cleaned.replace("&nbsp;", " ")
-    return cleaned.strip()
 
 
 def safe_project_id(value: str) -> str:
@@ -466,94 +526,59 @@ def safe_tag_id(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]", "_", str(value or "").strip())
 
 
-def ensure_ebirdst_runs(raw_dir: Path) -> Path:
-    csv_path = raw_dir / "ebirdst_runs.csv"
-    if csv_path.exists():
-        return csv_path
-
-    rscript = shutil.which("Rscript")
-    if not rscript:
-        raise SystemExit("Rscript not found. Install R to export ebirdst_runs.")
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    r_command = (
-        "if (!requireNamespace('ebirdst', quietly=TRUE)) stop('ebirdst package not installed');"
-        f"write.csv(ebirdst::ebirdst_runs, file='{csv_path.as_posix()}', row.names=FALSE)"
-    )
-    result = subprocess.run(
-        [rscript, "-e", r_command],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise SystemExit(f"Rscript failed: {result.stderr.strip() or result.stdout.strip()}")
-    if not csv_path.exists():
-        raise SystemExit("ebirdst_runs.csv was not created by Rscript.")
-    return csv_path
+def parse_bool_string(value: str, field_name: str) -> bool:
+    text = value.strip().upper()
+    if text == "TRUE":
+        return True
+    if text == "FALSE":
+        return False
+    raise SystemExit(f"Invalid {field_name} value: {value}")
 
 
-def ensure_ebird_taxonomy(raw_dir: Path, api_token: Optional[str]) -> Path:
-    csv_path = raw_dir / "ebird_taxonomy.csv"
-    if csv_path.exists():
-        return csv_path
-    if not api_token:
-        raise SystemExit("EBIRD_API_TOKEN not set and ebird_taxonomy.csv not found.")
-
-    url = "https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=csv&locale=en"
-    request = urllib.request.Request(url, headers={"X-eBirdApiToken": api_token})
-    try:
-        with urllib.request.urlopen(request) as response, csv_path.open("wb") as handle:
-            handle.write(response.read())
-    except Exception as exc:
-        raise SystemExit(f"Failed to fetch ebird taxonomy: {exc}") from exc
-
-    if not csv_path.exists():
-        raise SystemExit("ebird_taxonomy.csv was not created by API fetch.")
-    return csv_path
+def parse_optional_url(value: str) -> str:
+    text = value.strip()
+    return "" if not text or text.upper() == "NA" else text
 
 
-def load_ebird_taxonomy(csv_path: Path) -> Dict[str, Dict[str, str]]:
-    lookup: Dict[str, Dict[str, str]] = {}
+def load_species_lookup(csv_path: Path) -> Dict[str, Dict[str, Any]]:
+    required_columns = [
+        "scientific_name_input",
+        "Scientific_name",
+        "English_name_AviList",
+        "Species_code_Cornell_Lab",
+        "Birds_of_the_World_URL",
+        "BirdLife_DataZone_URL",
+        "in_ebirdst",
+    ]
+    lookup: Dict[str, Dict[str, Any]] = {}
     with csv_path.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
+        header = reader.fieldnames or []
+        missing = [col for col in required_columns if col not in header]
+        if missing:
+            raise SystemExit(
+                f"Missing required columns in {csv_path.name}: {', '.join(missing)}"
+            )
         for row in reader:
-            lowered = {key.lower(): value for key, value in row.items()}
-            scientific = normalize_species(
-                lowered.get("scientific_name")
-                or lowered.get("sci_name")
-                or lowered.get("sciname")
-                or ""
-            )
-            if not scientific:
-                continue
-            common = (
-                lowered.get("common_name")
-                or lowered.get("com_name")
-                or lowered.get("comname")
-                or lowered.get("commonname")
-                or ""
-            )
-            species_code = lowered.get("species_code") or lowered.get("speciescode") or ""
-            lookup[scientific] = {
-                "species_code": species_code.strip(),
-                "common_name": common.strip(),
+            scientific_input = normalize_species(row["scientific_name_input"])
+            scientific_name = normalize_species(row["Scientific_name"])
+            entry = {
+                "scientific_name": scientific_name,
+                "common_name": row["English_name_AviList"].strip(),
+                "species_code": row["Species_code_Cornell_Lab"].strip(),
+                "birds_of_the_world_url": parse_optional_url(row["Birds_of_the_World_URL"]),
+                "birdlife_factsheet_url": parse_optional_url(row["BirdLife_DataZone_URL"]),
+                "in_ebirdst": parse_bool_string(row["in_ebirdst"], "in_ebirdst"),
             }
+            for key in {scientific_input, scientific_name}:
+                existing = lookup.get(key)
+                if existing and existing != entry:
+                    raise SystemExit(f"Conflicting species mapping for: {key}")
+                lookup[key] = entry
+
     if not lookup:
-        raise SystemExit("ebird_taxonomy.csv could not be parsed.")
+        raise SystemExit("species.csv could not be parsed.")
     return lookup
-
-
-def load_ebirdst_species(csv_path: Path) -> set:
-    species = set()
-    with csv_path.open(newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            scientific = normalize_species(row.get("scientific_name") or "")
-            if scientific:
-                species.add(scientific)
-    if not species:
-        raise SystemExit("ebirdst_runs.csv missing scientific_name entries.")
-    return species
 
 
 def process_observations(
@@ -739,6 +764,8 @@ def process_project_assets(
                 "scientific_name": meta.get("scientific_name"),
                 "common_name": meta.get("common_name"),
                 "species_code": meta.get("species_code"),
+                "birdlife_factsheet_url": meta.get("birdlife_factsheet_url"),
+                "birds_of_the_world_url": meta.get("birds_of_the_world_url"),
                 "in_ebirdst": meta.get("in_ebirdst"),
                 "sex": meta.get("sex"),
                 "age_class": meta.get("age_class"),
@@ -777,8 +804,7 @@ def process_tags(
     tags_path: Path,
     project_index: Dict[str, Dict[str, Any]],
     record_to_project: Dict[str, str],
-    taxonomy_lookup: Dict[str, Dict[str, str]],
-    ebirdst_species: set,
+    species_lookup: Dict[str, Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     tags: List[Dict[str, Any]] = []
     missing_species: List[str] = []
@@ -802,18 +828,20 @@ def process_tags(
                 missing_project_tags.append(tag_id or "unknown")
             elif project_id not in project_index:
                 unknown_project_ids.append(raw_project_id)
-            ebird = taxonomy_lookup.get(scientific_name)
-            if scientific_name and not ebird:
+            species = species_lookup.get(scientific_name)
+            if scientific_name and not species:
                 missing_species.append(scientific_name)
 
             tags.append(
                 {
                     "tag_id": tag_id,
                     "ring_number": row.get("ring_number"),
-                    "scientific_name": scientific_name,
-                    "common_name": ebird.get("common_name") if ebird else None,
-                    "species_code": ebird.get("species_code") if ebird else None,
-                    "in_ebirdst": scientific_name in ebirdst_species,
+                    "scientific_name": species.get("scientific_name") if species else scientific_name,
+                    "common_name": species.get("common_name") if species else None,
+                    "species_code": species.get("species_code") if species else None,
+                    "birdlife_factsheet_url": species.get("birdlife_factsheet_url") if species else "",
+                    "birds_of_the_world_url": species.get("birds_of_the_world_url") if species else "",
+                    "in_ebirdst": species.get("in_ebirdst") if species else None,
                     "manufacturer": row.get("manufacturer"),
                     "model": row.get("model"),
                     "firmware": row.get("firmware"),
@@ -829,7 +857,7 @@ def process_tags(
         missing_sorted = sorted(set(missing_species))
         preview = ", ".join(missing_sorted[:15])
         raise SystemExit(
-            f"Missing ebirdst mapping for {len(missing_sorted)} species: {preview}"
+            f"Missing species mapping in species.csv for {len(missing_sorted)} species: {preview}"
         )
 
     if missing_project_tags:
@@ -971,6 +999,8 @@ def process_paths(
                 "scientific_name": meta.get("scientific_name"),
                 "common_name": meta.get("common_name"),
                 "species_code": meta.get("species_code"),
+                "birdlife_factsheet_url": meta.get("birdlife_factsheet_url"),
+                "birds_of_the_world_url": meta.get("birds_of_the_world_url"),
                 "in_ebirdst": meta.get("in_ebirdst"),
                 "project_id": project_id,
                 "project_title": project_title_map.get(project_id) if project_id else None,
@@ -990,9 +1020,10 @@ def load_raw_table_by_tag(
     allowed_tags: Optional[set] = None,
     chunksize: int = 200_000,
     allowed_columns: Optional[List[str]] = None,
+    max_simulation_j: Optional[int] = None,
 ) -> Tuple[List[str], Dict[str, Dict[str, List[Any]]]]:
-    path = resource_descriptor.get("path")
-    fields = resource_descriptor.get("fields") or []
+    path = resource_descriptor["path"]
+    fields = resource_descriptor["fields"]
     resource_columns = [field.get("name") for field in fields if field.get("name")]
     if allowed_columns:
         allowed_set = {col for col in allowed_columns if col}
@@ -1002,11 +1033,10 @@ def load_raw_table_by_tag(
     read_columns = list(columns)
     if tag_key not in read_columns:
         read_columns.append(tag_key)
+    if max_simulation_j is not None and "j" in resource_columns and "j" not in read_columns:
+        read_columns.append("j")
     dtype_map = pandas_dtype_map(fields)
     rows_by_tag: Dict[str, Dict[str, List[Any]]] = {}
-
-    if not path:
-        return columns, rows_by_tag
 
     reader = pd.read_csv(
         path,
@@ -1020,8 +1050,11 @@ def load_raw_table_by_tag(
     )
 
     for chunk in reader:
-        if tag_key not in chunk.columns:
-            continue
+        if max_simulation_j is not None and "j" in chunk.columns:
+            j_values = pd.to_numeric(chunk["j"], errors="coerce")
+            chunk = chunk[j_values.isna() | (j_values <= max_simulation_j)]
+            if chunk.empty:
+                continue
         if allowed_tags is not None:
             chunk = chunk[chunk[tag_key].isin(allowed_tags)]
         if chunk.empty:
@@ -1038,7 +1071,7 @@ def load_raw_table_by_tag(
                 rows_by_tag[tag_id] = bucket
             for col in columns:
                 values = group[col].tolist()
-                bucket[col].extend([None if pd.isna(v) else normalize_raw_value(v) for v in values])
+                bucket[col].extend([None if pd.isna(v) else v for v in values])
 
     return columns, rows_by_tag
 
@@ -1123,14 +1156,14 @@ def process_tag_assets(
 
 
 def main() -> None:
-    load_env()
     args = parse_args()
     input_dir = Path(args.input)
     output_dir = Path(args.output)
     print(f"[process] input={input_dir} output={output_dir}")
 
-    datapackage_path = input_dir / "datapackages.json"
+    datapackage_csv_path = input_dir / "datapackages.csv"
     datapackage_resource_path = input_dir / "datapackage.json"
+    species_path = input_dir / "species.csv"
     tags_path = input_dir / "tags.csv"
     paths_path = input_dir / "paths.csv"
     edges_path = input_dir / "edges.csv"
@@ -1138,28 +1171,33 @@ def main() -> None:
     observations_path = input_dir / "observations.csv"
     pressure_path = input_dir / "pressurepaths.csv"
 
-    if not datapackage_path.exists():
-        raise SystemExit(f"Missing {datapackage_path}")
+    if not datapackage_csv_path.exists():
+        raise SystemExit(f"Missing {datapackage_csv_path}")
+    if not datapackage_resource_path.exists():
+        raise SystemExit(f"Missing {datapackage_resource_path}")
+    if not species_path.exists():
+        raise SystemExit(f"Missing {species_path}")
     if not tags_path.exists():
         raise SystemExit(f"Missing {tags_path}")
     if not paths_path.exists():
         raise SystemExit(f"Missing {paths_path}")
+    if not edges_path.exists():
+        raise SystemExit(f"Missing {edges_path}")
     if not staps_path.exists():
         raise SystemExit(f"Missing {staps_path}")
     if not observations_path.exists():
         raise SystemExit(f"Missing {observations_path}")
+    if not args.skip_pressurepaths and not pressure_path.exists():
+        raise SystemExit(f"Missing {pressure_path}")
 
     reset_output_dir(output_dir)
 
-    print("[process] loading datapackages.json")
-    projects, project_index, record_to_project = process_projects(datapackage_path)
+    records = load_datapackage_records(datapackage_csv_path)
+    print("[process] loading datapackages.csv")
+    projects, project_index, record_to_project = process_projects(records)
 
-    print("[process] loading eBird taxonomy")
-    taxonomy_path = ensure_ebird_taxonomy(input_dir, os.environ.get("EBIRD_API_TOKEN"))
-    print("[process] loading ebirdst runs")
-    ebirdst_path = ensure_ebirdst_runs(input_dir)
-    taxonomy_lookup = load_ebird_taxonomy(taxonomy_path)
-    ebirdst_species = load_ebirdst_species(ebirdst_path)
+    print("[process] loading species.csv")
+    species_lookup = load_species_lookup(species_path)
 
     project_map = {}
     project_title_map: Dict[str, str] = {}
@@ -1170,7 +1208,7 @@ def main() -> None:
             project_title_map[project_id] = project.get("title") or ""
 
     print("[process] processing tags and observations")
-    tags = process_tags(tags_path, project_index, record_to_project, taxonomy_lookup, ebirdst_species)
+    tags = process_tags(tags_path, project_index, record_to_project, species_lookup)
     tag_stats, tag_locations, tag_observations = process_observations(observations_path)
 
     for tag in tags:
@@ -1199,6 +1237,7 @@ def main() -> None:
         resources["paths"],
         allowed_tags=stap_tag_ids,
         allowed_columns=paths_columns,
+        max_simulation_j=10,
     )
     path_tag_ids = {tag_id for tag_id, rows in paths_rows_by_tag.items() if rows}
     valid_tag_ids = stap_tag_ids & path_tag_ids
@@ -1219,6 +1258,8 @@ def main() -> None:
                 "project_id": project_id,
                 "project_title": project_title_map.get(project_id) if project_id else None,
                 "species_code": tag.get("species_code"),
+                "birdlife_factsheet_url": tag.get("birdlife_factsheet_url"),
+                "birds_of_the_world_url": tag.get("birds_of_the_world_url"),
             }
         )
     compact_dump(output_dir / "tags.json", tags_min)
@@ -1227,9 +1268,7 @@ def main() -> None:
     for project in projects:
         taxonomic = project.get("taxonomic") or []
         if isinstance(taxonomic, list):
-            project["taxonomic"] = build_taxa_objects(
-                [str(name) for name in taxonomic], taxonomy_lookup, ebirdst_species
-            )
+            project["taxonomic"] = build_taxa_objects([str(name) for name in taxonomic], species_lookup)
 
     tag_to_project = {
         tag.get("tag_id"): tag.get("project_id") for tag in tags if tag.get("tag_id")
@@ -1272,6 +1311,8 @@ def main() -> None:
             "scientific_name": tag.get("scientific_name"),
             "common_name": tag.get("common_name"),
             "species_code": tag.get("species_code"),
+            "birdlife_factsheet_url": tag.get("birdlife_factsheet_url"),
+            "birds_of_the_world_url": tag.get("birds_of_the_world_url"),
             "in_ebirdst": tag.get("in_ebirdst"),
             "sex": tag.get("sex"),
             "age_class": tag.get("age_class"),
@@ -1310,28 +1351,25 @@ def main() -> None:
     compact_dump(output_dir / "globe.json", globe_tags)
     print("[process] wrote globe.json")
 
-    edges_columns: List[str] = []
-    edges_rows_by_tag: Dict[str, Dict[str, List[Any]]] = {}
-    if edges_path.exists():
-        edges_columns = [
-            "stap_s",
-            "stap_t",
-            "type",
-            "distance",
-            "bearing",
-            "gs_u",
-            "gs_v",
-            "ws_u",
-            "ws_v",
-        ]
-        edges_columns, edges_rows_by_tag = load_raw_table_by_tag(
-            resources["edges"],
-            allowed_tags=valid_tag_ids,
-            allowed_columns=edges_columns,
-        )
+    edges_columns = [
+        "stap_s",
+        "stap_t",
+        "type",
+        "distance",
+        "bearing",
+        "gs_u",
+        "gs_v",
+        "ws_u",
+        "ws_v",
+    ]
+    edges_columns, edges_rows_by_tag = load_raw_table_by_tag(
+        resources["edges"],
+        allowed_tags=valid_tag_ids,
+        allowed_columns=edges_columns,
+    )
     pressure_columns: List[str] = []
     pressure_rows_by_tag: Dict[str, Dict[str, List[Any]]] = {}
-    if pressure_path.exists() and not args.skip_pressurepaths:
+    if not args.skip_pressurepaths:
         pressure_columns_all = [
             field.get("name")
             for field in resources["pressurepaths"].get("fields", [])
@@ -1346,6 +1384,7 @@ def main() -> None:
             resources["pressurepaths"],
             allowed_tags=valid_tag_ids,
             allowed_columns=pressure_columns,
+            max_simulation_j=10,
         )
 
     print("[process] building tag assets")
@@ -1364,7 +1403,7 @@ def main() -> None:
     )
     print("[process] wrote tag assets")
 
-    if pressure_path.exists() and not args.skip_pressurepaths:
+    if not args.skip_pressurepaths:
         print("[process] embedded raw pressurepaths in tag assets")
     else:
         print("[process] skipped pressurepaths")

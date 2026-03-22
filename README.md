@@ -4,6 +4,82 @@ A playful, data-rich explorer for bird migration. Spin the globe, dive into proj
 
 This visualization tool shows all Geolocator studies submitted to the [Geolocator DP Zenodo community](https://zenodo.org/communities/geolocator-dp) and following the standardized format [GeoLocator Data Package (GeoLocator DP)](https://raphaelnussbaumer.com/GeoLocator-DP/).
 
+## Raw data source
+
+The `raw_data/` folder is the source used to build the frontend data assets.  
+It consists of a snapshot from Zenodo record `10.5281/zenodo.18187093` (not yet published).
+
+Core input files are:
+
+- `datapackage.json` (resource schema/column definitions)
+- `datapackages.csv` (project-level metadata)
+- `tags.csv`
+- `observations.csv`
+- `paths.csv`
+- `staps.csv`
+- `edges.csv`
+- `pressurepaths.csv`
+- `twilights.csv`
+- `species.csv`
+
+## How `raw_data` is processed
+
+Processing is done by [`scripts/process_data.py`](scripts/process_data.py):
+
+1. Load project metadata from `raw_data/datapackages.csv`.
+2. Load and enrich species metadata from `raw_data/species.csv`:
+   - canonical scientific name
+   - common name
+   - Cornell species code
+   - `in_ebirdst`
+3. Parse tags, observations, movement paths, stopovers, edges, and pressure paths.
+4. Keep only the first 10 simulations where `j <= 10` for raw `paths`/`pressurepaths` embedded in tag assets.
+5. Filter to tags with valid `staps` + `paths` data.
+6. Write optimized frontend assets into `public/data/`:
+   - `projects.json`
+   - `tags.json`
+   - `globe.json`
+   - `projects/<project_id>.json`
+   - `tags/<tag_id>.json`
+
+## How to run
+
+```bash
+# 1) install JS dependencies
+npm install
+
+# 2) prepare local Python env for scripts/process_data.py
+[ -x .venv/bin/python ] || python3 -m venv .venv
+.venv/bin/python -m pip install pandas
+
+# 3) set env vars
+cp .env.example .env
+# then set at least: VITE_MAPBOX_TOKEN
+
+# 4) build processed data assets from raw_data/
+.venv/bin/python scripts/process_data.py
+
+# optional: skip pressurepaths processing for faster builds
+.venv/bin/python scripts/process_data.py --skip-pressurepaths
+
+# 5) start local dev server
+npm run dev
+```
+
+Production build:
+
+```bash
+npm run build
+npm run preview
+```
+
+If build fails with `stream did not contain valid UTF-8` from `threebox-plugin`, run:
+
+```bash
+npm run fix:threebox-encoding
+npm run build
+```
+
 ## What this app does
 
 ### Global view

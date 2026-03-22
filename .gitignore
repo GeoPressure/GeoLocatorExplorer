@@ -26,3 +26,4 @@ raw_data/
 *.njsproj
 *.sln
 *.sw?
+/scripts/__pycache__
