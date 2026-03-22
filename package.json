@@ -1,38 +1,36 @@
 {
   "name": "geolocatorexplorer",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "packageManager": "npm@11.7.0",
   "description": "Explore the migration movements of small birds tracked with multi-sensor geolocators and open GeoLocator Data Packages.",
   "scripts": {
+    "fix:threebox-encoding": "node scripts/fix_threebox_encoding.mjs",
+    "predev": "npm run fix:threebox-encoding",
     "dev": "vite",
+    "prebuild": "npm run fix:threebox-encoding",
     "build": "vite build",
     "build:data": "python3 scripts/process_data.py",
+    "postbuild": "cp dist/index.html dist/404.html",
     "preview": "vite preview"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
-    "@popperjs/core": "^2.11.8",
-    "bootstrap": "^5.3.8",
-    "bootstrap-icons": "^1.13.1",
     "chroma-js": "^3.2.0",
-    "mapbox-gl": "^3.18.1",
-    "plotly.js-dist-min": "^3.3.1",
-    "pako": "^2.1.0",
-    "papaparse": "^5.5.3",
+    "mapbox-gl": "^3.20.0",
+    "plotly.js-dist-min": "^3.4.0",
     "threebox-plugin": "^2.2.7",
-    "vue": "^3.5.27",
-    "vue-router": "^4.6.4"
+    "vue": "^3.5.30",
+    "vue-router": "^5.0.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
-    "@vitejs/plugin-vue": "^6.0.3",
-    "autoprefixer": "^10.4.23",
-    "postcss": "^8.5.6",
-    "sass": "^1.97.3",
-    "tailwindcss": "^4.1.18",
-    "vite": "^7.3.1"
+    "@tailwindcss/postcss": "^4.2.2",
+    "@vitejs/plugin-vue": "^6.0.5",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.2",
+    "vite": "^8.0.1"
   },
   "author": "Raphaël Nussbaumer",
   "license": "MIT",
