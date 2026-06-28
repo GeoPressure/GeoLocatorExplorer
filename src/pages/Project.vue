@@ -5,7 +5,18 @@
     >
       <div class="panel order-2 h-auto overflow-visible lg:order-1 lg:h-full lg:overflow-y-auto">
         <div>
-          <label class="text-xs uppercase tracking-[0.2em] text-white/60">Select Project</label>
+          <div class="flex items-center justify-between gap-3">
+            <label class="text-xs uppercase tracking-[0.2em] text-white/60">Select Project</label>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
+              @click="openPrivateModal"
+              aria-label="Manage private Zenodo datapackages"
+            >
+              <span class="text-[color:var(--teal)]">+</span>
+              <span>Add Private Project</span>
+            </button>
+          </div>
           <Combobox
             v-model="selectedId"
             as="div"
@@ -63,6 +74,12 @@
                 >
                   <p class="text-sm font-medium text-white">
                     {{ displayProjectTitle(project.title) }}
+                    <span
+                      v-if="project.is_private"
+                      class="ml-2 rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                    >
+                      Private
+                    </span>
                   </p>
                   <p
                     v-if="projectSubtitle(project)"
@@ -80,6 +97,12 @@
           <div>
             <h2 class="font-display text-2xl">
               {{ displayProjectTitle(selectedProject.title) }}
+              <span
+                v-if="selectedProject.is_private"
+                class="ml-2 align-middle rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+              >
+                Private
+              </span>
             </h2>
           </div>
 
@@ -344,6 +367,20 @@
         </div>
       </div>
     </div>
+
+    <PrivateZenodoModal
+      v-model="isPrivateModalOpen"
+      v-model:recordInput="zenodoRecordInput"
+      v-model:tokenInput="zenodoTokenInput"
+      :records="privateRecords"
+      :status="privateStatus"
+      :error="privateError"
+      :isProcessing="isProcessingPrivate"
+      :formatTitle="displayProjectTitle"
+      @load="loadPrivateZenodoRecord"
+      @select="selectPrivateRecord"
+      @remove="removePrivateRecord"
+    />
   </section>
 </template>
 
@@ -358,7 +395,17 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from "@headlessui/vue";
+import PrivateZenodoModal from "../components/PrivateZenodoModal.vue";
 import { loadProjectData, loadProjects } from "../lib/data";
+import { loadZenodoDatapackage } from "../lib/datapackageProcessor";
+import {
+  deletePrivateDatapackage,
+  listPrivateDatapackages,
+  PRIVATE_DATAPACKAGES_CHANGED_EVENT,
+  savePrivateDatapackage,
+  summarizePrivateDatapackage,
+} from "../lib/privateDatapackageStore";
+import { normalizeZenodoId } from "../lib/privateData";
 import {
   colorForIndex,
   formatShortDate,
@@ -378,7 +425,15 @@ const selectedId = ref("");
 const searchQuery = ref("");
 const isSearching = ref(false);
 const citationCopied = ref(false);
+const isPrivateModalOpen = ref(false);
+const zenodoRecordInput = ref("");
+const zenodoTokenInput = ref("");
+const privateRecords = ref([]);
+const privateStatus = ref("");
+const privateError = ref("");
+const isProcessingPrivate = ref(false);
 let citationCopyTimer;
+let privateDatapackagesChangedHandler;
 
 let mapInstance;
 let mapReady = false;
@@ -482,6 +537,9 @@ const projectSubtitle = (project) => {
   const taxa = projectTaxaNames(project);
   const contributors = projectContributorNames(project);
   const parts = [];
+  if (project.is_private) {
+    parts.push("Private");
+  }
   if (taxa.length) {
     const taxaPreview = taxa.slice(0, 2).join(" · ");
     const suffix = taxa.length > 2 ? ` +${taxa.length - 2}` : "";
@@ -769,6 +827,89 @@ const updateProjectData = async () => {
     projectData.value = emptyProjectData();
     tagInfoMap = new Map();
     clearMapData();
+  }
+};
+
+const refreshPrivateRecords = async () => {
+  privateRecords.value = (await listPrivateDatapackages()).map(summarizePrivateDatapackage);
+};
+
+const refreshProjects = async () => {
+  const cachedRecords = await listPrivateDatapackages();
+  projects.value = await loadProjects(cachedRecords);
+  privateRecords.value = cachedRecords.map(summarizePrivateDatapackage);
+};
+
+const openPrivateModal = async () => {
+  privateError.value = "";
+  privateStatus.value = "";
+  await refreshPrivateRecords();
+  isPrivateModalOpen.value = true;
+};
+
+const loadPrivateZenodoRecord = async () => {
+  privateError.value = "";
+  privateStatus.value = "Starting Zenodo download...";
+  isProcessingPrivate.value = true;
+  try {
+    const record = await loadZenodoDatapackage({
+      record: zenodoRecordInput.value,
+      token: zenodoTokenInput.value,
+      onProgress: (message) => {
+        privateStatus.value = message;
+      },
+    });
+    const cachedRecords = await listPrivateDatapackages();
+    const recordIdKey = normalizeZenodoId(record.recordId || record.project?.record_id);
+    const existingRecord = cachedRecords.find(
+      (entry) => normalizeZenodoId(entry.recordId || entry.project?.record_id) === recordIdKey,
+    );
+    if (existingRecord) {
+      const shouldOverwrite = window.confirm(
+        `A private cache entry for Zenodo record ${recordIdKey} already exists. Overwrite it?`,
+      );
+      if (!shouldOverwrite) {
+        privateStatus.value = "Import cancelled.";
+        return;
+      }
+    }
+    privateStatus.value = "Saving processed datapackage in this browser...";
+    await savePrivateDatapackage(record);
+    zenodoRecordInput.value = "";
+    await refreshProjects();
+    privateStatus.value = "Private datapackage stored in this browser.";
+    await updateProject(record.project.id);
+  } catch (error) {
+    console.error("Failed to load private Zenodo record:", error);
+    privateError.value = error?.message || "Failed to load private Zenodo record.";
+    privateStatus.value = "";
+  } finally {
+    isProcessingPrivate.value = false;
+  }
+};
+
+const selectPrivateRecord = async (id) => {
+  const record = privateRecords.value.find((item) => item.id === id);
+  if (!record) {
+    return;
+  }
+  const recordIdKey = normalizeZenodoId(record.recordId);
+  const matchedProject = projects.value.find(
+    (project) =>
+      normalizeZenodoId(project.record_id) === recordIdKey || projectKey(project) === record.id,
+  );
+  isPrivateModalOpen.value = false;
+  await updateProject(projectKey(matchedProject || {}) || id);
+};
+
+const removePrivateRecord = async (id) => {
+  await deletePrivateDatapackage(id);
+  await refreshProjects();
+  if (selectedId.value === id) {
+    const fallback = projectKey(projects.value[0] || {});
+    if (fallback) {
+      await updateProject(fallback);
+    }
   }
 };
 
@@ -1223,16 +1364,23 @@ onMounted(async () => {
     bearing: 0,
   });
 
-  const projectsData = await loadProjects();
-
-  projects.value = projectsData;
+  await refreshProjects();
 
   const initialId = route.params.conceptId
     ? resolveProjectId(route.params.conceptId)
-    : projectKey(projectsData[0] || {});
-  const fallbackId = projectKey(projectsData[0] || {});
-  const exists = projectsData.some((project) => projectKey(project) === initialId);
+    : projectKey(projects.value[0] || {});
+  const fallbackId = projectKey(projects.value[0] || {});
+  const exists = projects.value.some((project) => projectKey(project) === initialId);
   await updateProject(exists ? initialId : fallbackId);
+
+  privateDatapackagesChangedHandler = async () => {
+    const current = selectedId.value;
+    await refreshProjects();
+    if (current && projects.value.some((project) => projectKey(project) === current)) {
+      await updateProjectData();
+    }
+  };
+  window.addEventListener(PRIVATE_DATAPACKAGES_CHANGED_EVENT, privateDatapackagesChangedHandler);
 
   mapInstance.once("load", () => {
     mapReady = true;
@@ -1261,6 +1409,12 @@ onBeforeUnmount(() => {
   if (citationCopyTimer) {
     clearTimeout(citationCopyTimer);
     citationCopyTimer = null;
+  }
+  if (privateDatapackagesChangedHandler) {
+    window.removeEventListener(
+      PRIVATE_DATAPACKAGES_CHANGED_EVENT,
+      privateDatapackagesChangedHandler,
+    );
   }
 });
 </script>

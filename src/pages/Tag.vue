@@ -61,6 +61,12 @@
                   >
                     <p class="text-sm font-medium text-white">
                       {{ tag.tag_id }} · {{ tag.common_name || tag.scientific_name || "Unknown" }}
+                      <span
+                        v-if="tag.is_private"
+                        class="ml-2 rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                      >
+                        Private
+                      </span>
                     </p>
                     <p
                       v-if="tag.project_title"
@@ -179,6 +185,9 @@
                   class="ml-2 text-[color:var(--teal)] hover:text-white break-words"
                 >
                   {{ displayProjectTitle(tagDetails.project_title) || "—" }}
+                  <span v-if="tagDetails.is_private" class="ml-2 text-[10px] uppercase tracking-[0.18em] text-[color:var(--teal)]">
+                    Private
+                  </span>
                 </RouterLink>
                 <span v-else class="ml-2">—</span>
               </p>
@@ -368,6 +377,7 @@ import mapboxgl from "mapbox-gl";
 import Plotly from "plotly.js-dist-min";
 import { Threebox, THREE } from "threebox-plugin";
 import { loadTagData, loadTags } from "../lib/data";
+import { PRIVATE_DATAPACKAGES_CHANGED_EVENT } from "../lib/privateDatapackageStore";
 import {
   bearingDegrees,
   buildDistanceTimeline,
@@ -449,6 +459,7 @@ let playRafId;
 let lastPlayTimestamp = null;
 let playAccumulator = 0;
 let outsideClickHandler;
+let privateDatapackagesChangedHandler;
 let pressureMarkerReady = false;
 const PLAYBACK_DAYS_PER_SEC = 5;
 const PLAYBACK_KM_PER_SEC = 200;
@@ -867,6 +878,10 @@ const tagDisplayValue = (value) => {
   }
   const label = tag.common_name || tag.scientific_name || "Unknown";
   return `${tag.tag_id} · ${label}`;
+};
+
+const refreshTags = async () => {
+  tags.value = await loadTags();
 };
 
 const displayProjectTitle = (title) =>
@@ -2122,9 +2137,18 @@ watch([timeTimeline, distanceTimeline], () => {
 });
 
 onMounted(async () => {
-  tags.value = await loadTags();
+  await refreshTags();
   const initialTag = route.params.tagId ? String(route.params.tagId) : tags.value[0]?.tag_id;
   selectedTag.value = initialTag;
+
+  privateDatapackagesChangedHandler = async () => {
+    const current = selectedTag.value;
+    await refreshTags();
+    if (current && tags.value.some((tag) => tag.tag_id === current)) {
+      await fetchTagData(current);
+    }
+  };
+  window.addEventListener(PRIVATE_DATAPACKAGES_CHANGED_EVENT, privateDatapackagesChangedHandler);
 
   updateIsMobile();
   mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -2291,6 +2315,12 @@ onBeforeUnmount(() => {
     document.removeEventListener("mousedown", outsideClickHandler);
     document.removeEventListener("touchstart", outsideClickHandler);
     outsideClickHandler = null;
+  }
+  if (privateDatapackagesChangedHandler) {
+    window.removeEventListener(
+      PRIVATE_DATAPACKAGES_CHANGED_EVENT,
+      privateDatapackagesChangedHandler,
+    );
   }
   stopPressurePlayback();
   if (stapPopup) {
