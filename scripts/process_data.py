@@ -5,7 +5,11 @@ Outputs:
 - public/data/projects.json
 - public/data/tags.json
 - public/data/globe.json
-- public/data/tags/<tag_id>.json
+- public/data/tags/<tag_id>/meta.json
+- public/data/tags/<tag_id>/paths.json
+- public/data/tags/<tag_id>/staps.json
+- public/data/tags/<tag_id>/observations.json
+- public/data/tags/<tag_id>/pressurepath.json
 """
 
 from __future__ import annotations
@@ -14,7 +18,6 @@ import argparse
 import csv
 import datetime as dt
 import json
-import shutil
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -35,10 +38,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def parse_taxonomic(value: Optional[str]) -> List[str]:
+def clean_csv_text(value: Optional[str]) -> str:
     if value is None:
-        return []
+        return ""
     text = str(value).strip().strip("\"")
+    return "" if not text or text.upper() == "NA" else text
+
+
+def parse_taxonomic(value: Optional[str]) -> List[str]:
+    text = clean_csv_text(value)
     if not text:
         return []
     return [item.strip().strip("\"") for item in text.split(",") if item.strip().strip("\"")]
@@ -63,7 +71,7 @@ def to_int(value: Optional[str]) -> Optional[int]:
 
 
 def parse_csv_contributors(value: str) -> List[Dict[str, Any]]:
-    text = value.strip()
+    text = clean_csv_text(value)
     if not text:
         return []
     if ";" in text:
@@ -88,7 +96,7 @@ def parse_csv_contributors(value: str) -> List[Dict[str, Any]]:
 
 
 def parse_csv_licenses(value: str) -> List[Dict[str, Any]]:
-    text = value.strip()
+    text = clean_csv_text(value)
     if not text:
         return []
     items = [item.strip() for item in text.split(";") if item.strip()]
@@ -103,7 +111,7 @@ def parse_csv_licenses(value: str) -> List[Dict[str, Any]]:
 
 
 def parse_csv_related_identifiers(value: str) -> List[Dict[str, Any]]:
-    text = value.strip()
+    text = clean_csv_text(value)
     if not text:
         return []
     items = [item.strip() for item in text.split(",") if item.strip()]
@@ -182,16 +190,16 @@ def parse_datapackages_csv(path: Path) -> List[Dict[str, Any]]:
                 f"Missing required columns in {path.name}: {', '.join(missing_columns)}"
             )
         for raw in reader:
-            project_id = raw["datapackage_id"].strip()
+            project_id = clean_csv_text(raw["datapackage_id"])
             if not project_id:
                 raise SystemExit("Missing datapackage_id in datapackages.csv.")
-            concept_id = raw["conceptid"].strip()
+            concept_id = clean_csv_text(raw["conceptid"])
             counts: Dict[str, Optional[int]] = {
                 key: to_int(raw[f"numberTags_{key}"]) for key in count_keys
             }
 
-            temporal_start = raw["temporal_start"].strip()
-            temporal_end = raw["temporal_end"].strip()
+            temporal_start = clean_csv_text(raw["temporal_start"])
+            temporal_end = clean_csv_text(raw["temporal_end"])
             temporal = None
             if temporal_start or temporal_end:
                 temporal = {"start": temporal_start, "end": temporal_end}
@@ -199,17 +207,17 @@ def parse_datapackages_csv(path: Path) -> List[Dict[str, Any]]:
             record: Dict[str, Any] = {
                 "id": project_id,
                 "concept_id": concept_id,
-                "title": raw["title"].strip(),
-                "version": raw["version"].strip(),
-                "created": raw["created"].strip(),
-                "status": raw["status"].strip(),
-                "access_status": raw["access_status"].strip(),
-                "embargo": raw["embargo"].strip(),
-                "repository": raw["codeRepository"].strip(),
-                "homepage": raw["homepage"].strip(),
-                "keywords": raw["keywords"].strip(),
-                "grants": raw["grants"].strip(),
-                "bibliographicCitation": raw["bibliographicCitation"].strip(),
+                "title": clean_csv_text(raw["title"]),
+                "version": clean_csv_text(raw["version"]),
+                "created": clean_csv_text(raw["created"]),
+                "status": clean_csv_text(raw["status"]),
+                "access_status": clean_csv_text(raw["access_status"]),
+                "embargo": clean_csv_text(raw["embargo"]),
+                "repository": clean_csv_text(raw["codeRepository"]),
+                "homepage": clean_csv_text(raw["homepage"]),
+                "keywords": clean_csv_text(raw["keywords"]),
+                "grants": clean_csv_text(raw["grants"]),
+                "bibliographicCitation": clean_csv_text(raw["bibliographicCitation"]),
                 "taxonomic": parse_taxonomic(raw["taxonomic"]),
                 "numberTags": counts,
                 "contributors": parse_csv_contributors(raw["contributors"]),
@@ -285,22 +293,43 @@ def round_datetime_minute(value: Any) -> Optional[str]:
     return iso
 
 
-def compact_dump(path: Path, payload: Any) -> None:
+def compact_json_bytes(payload: Any) -> bytes:
+    text = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
+    return text.encode("utf-8")
+
+
+def compact_dump(path: Path, payload: Any) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=True, separators=(",", ":"))
+    data = compact_json_bytes(payload)
+    if path.exists() and path.read_bytes() == data:
+        return False
+    path.write_bytes(data)
+    return True
 
 
-def reset_output_dir(output_dir: Path) -> None:
+def prepare_output_dir(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    for subdir in ("projects", "tags"):
-        path = output_dir / subdir
-        if path.exists():
-            shutil.rmtree(path)
-    for filename in ("projects.json", "tags.json", "globe.json"):
-        path = output_dir / filename
-        if path.exists():
+
+
+def remove_empty_dirs(path: Path, stop_at: Path) -> None:
+    stop_at = stop_at.resolve()
+    current = path.resolve()
+    while current != stop_at and current.exists():
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
+def cleanup_stale_generated_files(output_dir: Path, expected_paths: set[Path]) -> None:
+    expected = {path.resolve() for path in expected_paths}
+    for pattern in ("projects/*.json", "tags/*.json", "tags/*/*.json"):
+        for path in output_dir.glob(pattern):
+            if path.resolve() in expected:
+                continue
             path.unlink()
+            remove_empty_dirs(path.parent, output_dir)
 
 
 def load_resource_descriptors(datapackage_path: Path) -> Dict[str, Dict[str, Any]]:
@@ -474,8 +503,11 @@ def normalize_doi(value: str) -> str:
 def to_concept_id(value: str) -> str:
     if not value:
         return ""
-    numeric = re.sub(r"[^0-9]", "", value)
-    return numeric or ""
+    text = str(value).strip()
+    match = re.search(r"zenodo\.(\d+)", text, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    return text if text.isdigit() else ""
 
 
 def to_concept_doi(concept_id: str) -> str:
@@ -501,6 +533,7 @@ def build_taxa_objects(
                 "common_name": species["common_name"],
                 "species_code": species["species_code"],
                 "in_ebirdst": species["in_ebirdst"],
+                "iucn_red_list_category": species["iucn_red_list_category"],
                 "birdlife_factsheet_url": species["birdlife_factsheet_url"],
                 "birds_of_the_world_url": species["birds_of_the_world_url"],
             }
@@ -546,6 +579,7 @@ def load_species_lookup(csv_path: Path) -> Dict[str, Dict[str, Any]]:
         "Scientific_name",
         "English_name_AviList",
         "Species_code_Cornell_Lab",
+        "IUCN_Red_List_Category",
         "Birds_of_the_World_URL",
         "BirdLife_DataZone_URL",
         "in_ebirdst",
@@ -566,6 +600,7 @@ def load_species_lookup(csv_path: Path) -> Dict[str, Dict[str, Any]]:
                 "scientific_name": scientific_name,
                 "common_name": row["English_name_AviList"].strip(),
                 "species_code": row["Species_code_Cornell_Lab"].strip(),
+                "iucn_red_list_category": clean_csv_text(row["IUCN_Red_List_Category"]).upper(),
                 "birds_of_the_world_url": parse_optional_url(row["Birds_of_the_World_URL"]),
                 "birdlife_factsheet_url": parse_optional_url(row["BirdLife_DataZone_URL"]),
                 "in_ebirdst": parse_bool_string(row["in_ebirdst"], "in_ebirdst"),
@@ -688,6 +723,7 @@ def process_project_assets(
     tag_to_project: Dict[str, str],
     tag_meta_map: Dict[str, Dict[str, Any]],
     project_known_locations: Dict[str, List[Dict[str, Any]]],
+    expected_paths: set[Path],
 ) -> set:
     stap_stats: Dict[Tuple[str, str], List[float]] = defaultdict(lambda: [0.0, 0.0, 0.0])
 
@@ -764,6 +800,7 @@ def process_project_assets(
                 "scientific_name": meta.get("scientific_name"),
                 "common_name": meta.get("common_name"),
                 "species_code": meta.get("species_code"),
+                "iucn_red_list_category": meta.get("iucn_red_list_category"),
                 "birdlife_factsheet_url": meta.get("birdlife_factsheet_url"),
                 "birds_of_the_world_url": meta.get("birds_of_the_world_url"),
                 "in_ebirdst": meta.get("in_ebirdst"),
@@ -778,7 +815,9 @@ def process_project_assets(
             "tags": tags_payload,
             "known_locations": project_known_locations.get(project_id, []),
         }
-        compact_dump(projects_dir / f"{safe_project_id(project_id)}.json", payload)
+        path = projects_dir / f"{safe_project_id(project_id)}.json"
+        compact_dump(path, payload)
+        expected_paths.add(path)
     return project_ids_with_data
 
 
@@ -839,6 +878,7 @@ def process_tags(
                     "scientific_name": species.get("scientific_name") if species else scientific_name,
                     "common_name": species.get("common_name") if species else None,
                     "species_code": species.get("species_code") if species else None,
+                    "iucn_red_list_category": species.get("iucn_red_list_category") if species else "",
                     "birdlife_factsheet_url": species.get("birdlife_factsheet_url") if species else "",
                     "birds_of_the_world_url": species.get("birds_of_the_world_url") if species else "",
                     "in_ebirdst": species.get("in_ebirdst") if species else None,
@@ -999,6 +1039,7 @@ def process_paths(
                 "scientific_name": meta.get("scientific_name"),
                 "common_name": meta.get("common_name"),
                 "species_code": meta.get("species_code"),
+                "iucn_red_list_category": meta.get("iucn_red_list_category"),
                 "birdlife_factsheet_url": meta.get("birdlife_factsheet_url"),
                 "birds_of_the_world_url": meta.get("birds_of_the_world_url"),
                 "in_ebirdst": meta.get("in_ebirdst"),
@@ -1088,19 +1129,24 @@ def process_tag_assets(
     staps_rows_by_tag: Dict[str, Dict[str, List[Any]]],
     pressure_columns: List[str],
     pressure_rows_by_tag: Dict[str, Dict[str, List[Any]]],
-) -> None:
+    expected_paths: set[Path],
+) -> Dict[str, Dict[str, str]]:
     tags_dir = output_dir / "tags"
     tags_dir.mkdir(parents=True, exist_ok=True)
+    tag_assets: Dict[str, Dict[str, str]] = {}
 
     for tag in tags:
         tag_id = tag.get("tag_id")
         if not tag_id:
             continue
-        payload = dict(tag)
-        payload.pop("title", None)
-        payload.pop("concept_id", None)
-        payload.pop("concept_doi", None)
-        payload.pop("doi", None)
+        safe_id = safe_tag_id(tag_id)
+        tag_dir = tags_dir / safe_id
+        assets: Dict[str, str] = {}
+        meta = dict(tag)
+        meta.pop("title", None)
+        meta.pop("concept_id", None)
+        meta.pop("concept_doi", None)
+        meta.pop("doi", None)
         paths_rows = paths_rows_by_tag.get(tag_id, {}) if paths_columns else {}
         if paths_rows:
             paths_rows = transform_rows(
@@ -1144,15 +1190,21 @@ def process_tag_assets(
             if "t" in pressure_rows:
                 pressure_rows["t"] = [round_datetime_minute(value) for value in pressure_rows["t"]]
 
-        payload.update(
-            {
-                "paths": paths_rows if paths_columns else {},
-                "staps": staps_rows if staps_columns else {},
-                "observations": tag_observations.get(tag_id, []),
-                "pressurepath": pressure_rows if pressure_columns else {},
-            }
-        )
-        compact_dump(tags_dir / f"{safe_tag_id(tag_id)}.json", payload)
+        payloads = {
+            "meta": meta,
+            "paths": paths_rows if paths_columns else {},
+            "staps": staps_rows if staps_columns else {},
+            "observations": tag_observations.get(tag_id, []),
+            "pressurepath": pressure_rows if pressure_columns else {},
+        }
+        for name, payload in payloads.items():
+            path = tag_dir / f"{name}.json"
+            compact_dump(path, payload)
+            expected_paths.add(path)
+            assets[name] = str(path.relative_to(output_dir))
+        tag_assets[tag_id] = assets
+
+    return tag_assets
 
 
 def main() -> None:
@@ -1190,7 +1242,8 @@ def main() -> None:
     if not args.skip_pressurepaths and not pressure_path.exists():
         raise SystemExit(f"Missing {pressure_path}")
 
-    reset_output_dir(output_dir)
+    prepare_output_dir(output_dir)
+    expected_paths: set[Path] = set()
 
     records = load_datapackage_records(datapackage_csv_path)
     print("[process] loading datapackages.csv")
@@ -1258,11 +1311,14 @@ def main() -> None:
                 "project_id": project_id,
                 "project_title": project_title_map.get(project_id) if project_id else None,
                 "species_code": tag.get("species_code"),
+                "iucn_red_list_category": tag.get("iucn_red_list_category"),
                 "birdlife_factsheet_url": tag.get("birdlife_factsheet_url"),
                 "birds_of_the_world_url": tag.get("birds_of_the_world_url"),
             }
         )
-    compact_dump(output_dir / "tags.json", tags_min)
+    tags_index_path = output_dir / "tags.json"
+    compact_dump(tags_index_path, tags_min)
+    expected_paths.add(tags_index_path)
     print("[process] wrote tags.json")
 
     for project in projects:
@@ -1311,6 +1367,7 @@ def main() -> None:
             "scientific_name": tag.get("scientific_name"),
             "common_name": tag.get("common_name"),
             "species_code": tag.get("species_code"),
+            "iucn_red_list_category": tag.get("iucn_red_list_category"),
             "birdlife_factsheet_url": tag.get("birdlife_factsheet_url"),
             "birds_of_the_world_url": tag.get("birds_of_the_world_url"),
             "in_ebirdst": tag.get("in_ebirdst"),
@@ -1330,6 +1387,7 @@ def main() -> None:
         tag_to_project,
         tag_meta_map,
         project_known_locations,
+        expected_paths,
     )
     print("[process] wrote project assets")
 
@@ -1337,7 +1395,9 @@ def main() -> None:
         project_id = project.get("id")
         project["has_project_data"] = bool(project_id in project_ids_with_data)
 
-    compact_dump(output_dir / "projects.json", projects)
+    projects_index_path = output_dir / "projects.json"
+    compact_dump(projects_index_path, projects)
+    expected_paths.add(projects_index_path)
     print("[process] wrote projects.json")
 
     print("[process] building globe data")
@@ -1348,7 +1408,9 @@ def main() -> None:
         tag_to_project,
         project_title_map,
     )
-    compact_dump(output_dir / "globe.json", globe_tags)
+    globe_path = output_dir / "globe.json"
+    compact_dump(globe_path, globe_tags)
+    expected_paths.add(globe_path)
     print("[process] wrote globe.json")
 
     edges_columns = [
@@ -1400,11 +1462,15 @@ def main() -> None:
         staps_rows_by_tag,
         pressure_columns,
         pressure_rows_by_tag,
+        expected_paths,
     )
     print("[process] wrote tag assets")
 
+    cleanup_stale_generated_files(output_dir, expected_paths)
+    print("[process] removed stale generated files")
+
     if not args.skip_pressurepaths:
-        print("[process] embedded raw pressurepaths in tag assets")
+        print("[process] wrote pressurepath assets")
     else:
         print("[process] skipped pressurepaths")
 

@@ -26,24 +26,18 @@ export function loadGlobe() {
   return loadJSON("data/globe.json");
 }
 
-const projectFileSafe = (value) => {
-  const text = String(value || "").trim();
-  const match = text.match(/zenodo\.(\d+)$/);
-  if (match) {
-    return match[1];
-  }
-  return text.replace(/[^A-Za-z0-9_-]/g, "_");
-};
-
-export function loadProjectData(projectId) {
-  return loadJSON(`data/projects/${projectFileSafe(projectId)}.json`);
+export async function loadProjectData(projectId) {
+  return loadJSON(`data/projects/${String(projectId || "").trim()}.json`);
 }
 
-const tagFileSafe = (value) =>
-  String(value || "")
-    .trim()
-    .replace(/[^A-Za-z0-9_-]/g, "_");
-
-export function loadTagData(tagId) {
-  return loadJSON(`data/tags/${tagFileSafe(tagId)}.json`);
+export async function loadTagData(tagId) {
+  const base = `data/tags/${String(tagId || "").trim()}`;
+  const [meta, paths, staps, observations, pressurepath] = await Promise.all([
+    loadJSON(`${base}/meta.json`),
+    loadJSON(`${base}/paths.json`),
+    loadJSON(`${base}/staps.json`),
+    loadJSON(`${base}/observations.json`),
+    loadJSON(`${base}/pressurepath.json`),
+  ]);
+  return { ...meta, paths, staps, observations, pressurepath };
 }

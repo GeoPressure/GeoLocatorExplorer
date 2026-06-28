@@ -152,12 +152,12 @@
             <p class="mt-3 text-sm text-white/70">
               Learn more at
               <a
-                href="https://raphaelnussbaumer.com/GeoLocator-DP/"
+                href="https://geopressure.org/GeoLocator-DP/"
                 target="_blank"
                 rel="noreferrer"
                 class="text-[color:var(--teal)] underline decoration-white/30 underline-offset-4 transition hover:text-white"
               >
-                raphaelnussbaumer.com/GeoLocator-DP
+                geopressure.org/GeoLocator-DP
               </a>
             </p>
           </div>

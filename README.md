@@ -40,7 +40,13 @@ Processing is done by [`scripts/process_data.py`](scripts/process_data.py):
    - `tags.json`
    - `globe.json`
    - `projects/<project_id>.json`
-   - `tags/<tag_id>.json`
+   - `tags/<tag_id>/meta.json`
+   - `tags/<tag_id>/paths.json`
+   - `tags/<tag_id>/staps.json`
+   - `tags/<tag_id>/observations.json`
+   - `tags/<tag_id>/pressurepath.json`
+
+The processor writes files only when their serialized content changes and removes stale generated project/tag assets after each run. Tag metadata is separated from large path arrays so metadata updates do not rewrite every large tag file.
 
 ## How to run
 
