@@ -97,7 +97,7 @@
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <img src="/ORCID_iD.svg" alt="ORCID" class="h-4 w-4" />
+                  <img src="/icons/ORCID_iD.svg" alt="ORCID" class="h-4 w-4" />
                 </a>
               </span>
             </div>
