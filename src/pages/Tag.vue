@@ -111,6 +111,14 @@
                   <span v-if="speciesInfo.scientificName" class="ml-2 italic text-white/60">
                     {{ speciesInfo.scientificName }}
                   </span>
+                  <img
+                    v-if="speciesInfo.iucnIcon"
+                    :src="speciesInfo.iucnIcon"
+                    :title="`IUCN ${speciesInfo.iucnLabel}`"
+                    alt=""
+                    aria-hidden="true"
+                    class="ml-2 inline-block h-3.5 w-3.5 align-[-2px] object-contain"
+                  />
                 </p>
                 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
                   <a
@@ -118,18 +126,36 @@
                     :href="speciesInfo.ebirdLink"
                     target="_blank"
                     rel="noreferrer"
-                    class="underline decoration-white/30 underline-offset-4 transition hover:text-white"
+                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
                   >
-                    eBird species
+                    eBird
                   </a>
                   <a
                     v-if="speciesInfo.statusTrendsLink"
                     :href="speciesInfo.statusTrendsLink"
                     target="_blank"
                     rel="noreferrer"
-                    class="underline decoration-white/30 underline-offset-4 transition hover:text-white"
+                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
                   >
-                    Status &amp; Trends
+                    Trends
+                  </a>
+                  <a
+                    v-if="speciesInfo.birdlifeFactsheetLink"
+                    :href="speciesInfo.birdlifeFactsheetLink"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
+                  >
+                    BirdLife
+                  </a>
+                  <a
+                    v-if="speciesInfo.birdsOfTheWorldLink"
+                    :href="speciesInfo.birdsOfTheWorldLink"
+                    target="_blank"
+                    rel="noreferrer"
+                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
+                  >
+                    Birds of the World
                   </a>
                   <span
                     v-if="speciesInfo.status"
@@ -553,22 +579,53 @@ const tagDetails = computed(() => ({
   ...(tagData.value || {}),
 }));
 
+const iucnCategoryMeta = (value) => {
+  const code = String(value || "").trim().toUpperCase();
+  if (!code) {
+    return null;
+  }
+  const iconCodes = new Set(["LC", "NT", "VU", "EN", "CR", "DD"]);
+  const icon = iconCodes.has(code) ? `${import.meta.env.BASE_URL}icons/iucn_${code}.png` : "";
+  const map = {
+    LC: { label: "Least Concern", icon },
+    NT: { label: "Near Threatened", icon },
+    VU: { label: "Vulnerable", icon },
+    EN: { label: "Endangered", icon },
+    CR: { label: "Critically Endangered", icon },
+    EW: { label: "Extinct in the Wild", icon: "" },
+    EX: { label: "Extinct", icon: "" },
+    DD: { label: "Data Deficient", icon },
+    NE: { label: "Not Evaluated", icon: "" },
+  };
+  return map[code] || { label: code, icon: "" };
+};
+
 const sexSymbol = computed(() => formatSexSymbol(tagDetails.value?.sex));
 const speciesInfo = computed(() => {
   const commonName = tagDetails.value?.common_name || "";
   const scientificName = tagDetails.value?.scientific_name || "";
   const speciesCode = tagDetails.value?.species_code || "";
+  const iucnCategory = String(tagDetails.value?.iucn_red_list_category || "").toUpperCase();
+  const birdlifeFactsheetLink = tagDetails.value?.birdlife_factsheet_url || "";
+  const birdsOfTheWorldLink = tagDetails.value?.birds_of_the_world_url || "";
   const inStatusTrends = tagDetails.value?.in_ebirdst ?? null;
   const status = tagDetails.value?.ebird_status || "";
   const trend = tagDetails.value?.ebird_trend || "";
   const week = 21;
+  const ebirdLink = speciesCode ? `https://ebird.org/species/${speciesCode}` : "";
+  const statusTrendsLink = speciesCode && inStatusTrends === true
+    ? `https://science.ebird.org/en/status-and-trends/species/${speciesCode}/abundance-map-weekly?week=${week}`
+    : "";
+  const iucnMeta = iucnCategoryMeta(iucnCategory);
   return {
     commonName,
     scientificName,
-    ebirdLink: speciesCode ? `https://ebird.org/species/${speciesCode}` : "",
-    statusTrendsLink: speciesCode
-      ? `https://science.ebird.org/en/status-and-trends/species/${speciesCode}/abundance-map-weekly?week=${week}`
-      : "",
+    ebirdLink,
+    statusTrendsLink,
+    iucnLabel: iucnMeta?.label || "",
+    iucnIcon: iucnMeta?.icon || "",
+    birdlifeFactsheetLink,
+    birdsOfTheWorldLink,
     inStatusTrends: typeof inStatusTrends === "boolean" ? inStatusTrends : null,
     status,
     trend,

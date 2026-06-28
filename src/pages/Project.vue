@@ -397,6 +397,26 @@ let tagInfoMap = new Map();
 
 const baseUrl = import.meta.env.BASE_URL || "/";
 
+const iucnCategoryMeta = (value) => {
+  const code = String(value || "").trim().toUpperCase();
+  if (!code) return null;
+  const labels = {
+    LC: "Least Concern",
+    NT: "Near Threatened",
+    VU: "Vulnerable",
+    EN: "Endangered",
+    CR: "Critically Endangered",
+    DD: "Data Deficient",
+  };
+  const iconCodes = new Set(Object.keys(labels));
+  const icon = iconCodes.has(code) ? `${import.meta.env.BASE_URL}icons/iucn_${code}.png` : "";
+  return {
+    code,
+    label: labels[code] || code,
+    icon,
+  };
+};
+
 const projectKey = (project) => project.id || project.concept_id || project.title;
 
 const normalizeProjectData = (data) =>
@@ -732,10 +752,12 @@ const updateProjectData = async () => {
       tag.tag_id,
       {
         commonName: tag.common_name || "",
-        species: tag.scientific_name || "",
+        scientificName: tag.scientific_name || "",
         sexSymbol: sexSymbol(tag.sex),
         ageClass: tag.age_class || "",
         wingLength: tag.wing_length || "",
+        iucnIcon: iucnCategoryMeta(tag.iucn_red_list_category)?.icon || "",
+        iucnLabel: iucnCategoryMeta(tag.iucn_red_list_category)?.label || "",
       },
     ]);
     tagInfoMap = new Map(metaEntries);
@@ -828,7 +850,11 @@ const setTagHover = (tagId, lngLat, { lock = false } = {}) => {
   const projectTitle = selectedProject.value?.title || "";
   const projectLink = "";
   const html = buildTagPopupHtml({
-    species: meta.commonName || meta.species || "Unknown species",
+    species: meta.commonName || meta.scientificName || "Unknown species",
+    commonName: meta.commonName || "",
+    scientificName: meta.scientificName || "",
+    iucnIcon: meta.iucnIcon || "",
+    iucnLabel: meta.iucnLabel || "",
     tagId,
     tagLink,
     projectTitle,

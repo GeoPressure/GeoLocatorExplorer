@@ -258,6 +258,26 @@ let hoverTagId = null;
 let pinnedTagId = null;
 let handleResize;
 
+const iucnCategoryMeta = (value) => {
+  const code = String(value || "").trim().toUpperCase();
+  if (!code) return null;
+  const labels = {
+    LC: "Least Concern",
+    NT: "Near Threatened",
+    VU: "Vulnerable",
+    EN: "Endangered",
+    CR: "Critically Endangered",
+    DD: "Data Deficient",
+  };
+  const iconCodes = new Set(Object.keys(labels));
+  const icon = iconCodes.has(code) ? `${import.meta.env.BASE_URL}icons/iucn_${code}.png` : "";
+  return {
+    code,
+    label: labels[code] || code,
+    icon,
+  };
+};
+
 const baseDurationMs = 20000;
 const tailDays = 30;
 const baseUrl = import.meta.env.BASE_URL || "/";
@@ -622,7 +642,11 @@ const setHover = (feature, lngLat, { lock = false } = {}) => {
     ? `${baseUrl}project/${encodeURIComponent(projectSlug(primaryProject.id))}`
     : "";
   const html = buildTagPopupHtml({
-    species: meta.commonName || meta.species || "Unknown species",
+    species: meta.commonName || meta.scientificName || "Unknown species",
+    commonName: meta.commonName || "",
+    scientificName: meta.scientificName || "",
+    iucnIcon: meta.iucnIcon || "",
+    iucnLabel: meta.iucnLabel || "",
     tagId,
     tagLink,
     projectTitle,
@@ -683,12 +707,17 @@ onMounted(async () => {
   tagsData.forEach((tag) => {
     const species = tag.scientific_name || tag.common_name || "Unknown";
     const commonName = tag.common_name || "";
+    const scientificName = tag.scientific_name || "";
+    const iucnMeta = iucnCategoryMeta(tag.iucn_red_list_category);
     const projectId = tag.project_id;
     const projectTitle = tag.project_title || projectId;
     const projectLinks = projectId ? [{ id: projectId, title: projectTitle }] : [];
     tagMetaMap.set(tag.tag_id, {
       species,
       commonName,
+      scientificName,
+      iucnIcon: iucnMeta?.icon || "",
+      iucnLabel: iucnMeta?.label || "",
       projectLinks,
     });
   });
