@@ -363,6 +363,14 @@
             <p class="mt-2 font-display text-lg text-white">
               Under Embargo until {{ embargoNotice }}
             </p>
+            <button
+              type="button"
+              class="mt-4 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
+              @click="openPrivateModal(selectedProject?.record_id || '')"
+            >
+              <span class="text-[color:var(--teal)]">+</span>
+              <span>Add as private</span>
+            </button>
           </div>
         </div>
       </div>
@@ -840,9 +848,12 @@ const refreshProjects = async () => {
   privateRecords.value = cachedRecords.map(summarizePrivateDatapackage);
 };
 
-const openPrivateModal = async () => {
+const openPrivateModal = async (prefillRecordId) => {
   privateError.value = "";
   privateStatus.value = "";
+  if (prefillRecordId !== undefined) {
+    zenodoRecordInput.value = String(prefillRecordId || "");
+  }
   await refreshPrivateRecords();
   isPrivateModalOpen.value = true;
 };
