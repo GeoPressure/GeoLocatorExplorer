@@ -258,6 +258,10 @@
         ></div>
         <div
           class="absolute bottom-4 left-1/2 z-10 w-[92%] max-w-2xl -translate-x-1/2 rounded-2xl border border-white/10 bg-black/60 px-3 py-2 backdrop-blur"
+          @pointerdown.stop
+          @touchstart.stop
+          @touchmove.stop
+          @touchend.stop
         >
           <div class="grid gap-2">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -296,7 +300,7 @@
                 >
                   <button
                     type="button"
-                    class="px-3 py-1.5 transition rounded-full"
+                    class="rounded-full px-3 py-1.5 transition [touch-action:manipulation]"
                     :class="sliderMode === 'time' ? 'bg-white/10 text-white' : ''"
                     @click="sliderMode = 'time'"
                   >
@@ -304,7 +308,7 @@
                   </button>
                   <button
                     type="button"
-                    class="px-3 py-1.5 transition rounded-full"
+                    class="rounded-full px-3 py-1.5 transition [touch-action:manipulation]"
                     :class="sliderMode === 'distance' ? 'bg-white/10 text-white' : ''"
                     @click="sliderMode = 'distance'"
                   >
@@ -319,7 +323,7 @@
               </div>
             </div>
             <input
-              class="pressure-slider w-full cursor-pointer appearance-none"
+              class="pressure-slider w-full cursor-pointer appearance-none [touch-action:pan-x]"
               type="range"
               :min="pressureSliderMin"
               :max="pressureSliderMax"
@@ -333,14 +337,27 @@
         <label
           v-if="hasPressurePath"
           class="absolute left-4 top-4 z-10 inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-white/70 backdrop-blur cursor-pointer"
+          @pointerdown.stop
+          @touchstart.stop
+          @touchend.stop
         >
           <span>Bird view</span>
+          <input v-model="isCameraFollowEnabled" type="checkbox" class="sr-only" />
           <span
-            class="relative inline-flex h-5 w-9 items-center rounded-full border border-white/20 bg-white/10 transition"
+            class="relative inline-flex h-5 w-9 items-center rounded-full border transition"
+            :class="
+              isCameraFollowEnabled
+                ? 'border-[color:var(--teal)]/50 bg-[color:var(--teal)]/20'
+                : 'border-white/20 bg-white/10'
+            "
           >
-            <input v-model="isCameraFollowEnabled" type="checkbox" class="peer sr-only" />
             <span
-              class="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white/70 transition duration-200 peer-checked:translate-x-4 peer-checked:bg-[color:var(--teal)]"
+              class="absolute left-0.5 top-1/2 h-4 w-4 -translate-y-1/2 rounded-full transition duration-200"
+              :class="
+                isCameraFollowEnabled
+                  ? 'translate-x-4 bg-[color:var(--teal)]'
+                  : 'translate-x-0 bg-white/70'
+              "
             ></span>
           </span>
         </label>
