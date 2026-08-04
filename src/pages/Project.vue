@@ -445,6 +445,7 @@ let privateDatapackagesChangedHandler;
 
 let mapInstance;
 let mapReady = false;
+let projectDataRequest = 0;
 const emptyProjectData = () => ({ tags: [], known_locations: [] });
 const projectData = ref(emptyProjectData());
 let hoverPopup;
@@ -810,6 +811,7 @@ const projectTagIds = computed(() => projectTags.value.map((entry) => entry.tag_
 
 const updateProjectData = async () => {
   const currentId = selectedId.value;
+  const requestId = ++projectDataRequest;
   if (!currentId || selectedProject.value?.has_project_data === false) {
     projectData.value = emptyProjectData();
     tagInfoMap = new Map();
@@ -818,6 +820,9 @@ const updateProjectData = async () => {
   }
   try {
     const data = await loadProjectData(currentId);
+    if (requestId !== projectDataRequest || currentId !== selectedId.value) {
+      return;
+    }
     projectData.value = normalizeProjectData(data);
     const metaEntries = projectData.value.tags.map((tag) => [
       tag.tag_id,
@@ -836,6 +841,9 @@ const updateProjectData = async () => {
       updateMap();
     }
   } catch (error) {
+    if (requestId !== projectDataRequest || currentId !== selectedId.value) {
+      return;
+    }
     console.error("Failed to load project data:", error);
     projectData.value = emptyProjectData();
     tagInfoMap = new Map();
@@ -1378,6 +1386,11 @@ onMounted(async () => {
     bearing: 0,
   });
 
+  mapInstance.once("load", () => {
+    mapReady = true;
+    updateMap();
+  });
+
   await refreshProjects();
 
   const initialId = route.params.conceptId
@@ -1395,11 +1408,6 @@ onMounted(async () => {
     }
   };
   window.addEventListener(PRIVATE_DATAPACKAGES_CHANGED_EVENT, privateDatapackagesChangedHandler);
-
-  mapInstance.once("load", () => {
-    mapReady = true;
-    updateMap();
-  });
 });
 
 onBeforeUnmount(() => {
