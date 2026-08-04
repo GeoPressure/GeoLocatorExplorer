@@ -10,7 +10,7 @@
             <button
               type="button"
               class="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
-              @click="openPrivateModal"
+              @click="openPrivateModal()"
               aria-label="Manage private Zenodo datapackages"
             >
               <span class="text-[color:var(--teal)]">+</span>
@@ -635,7 +635,12 @@ const toCount = (value) => {
 const projectCounts = computed(
   () => selectedProject.value?.counts || selectedProject.value?.numberTags || {},
 );
-const totalTags = computed(() => toCount(projectCounts.value.tags));
+const totalTags = computed(() => {
+  if (selectedProject.value?.has_project_data !== false) {
+    return new Set(projectData.value.tags.map((tag) => tag.tag_id).filter(Boolean)).size;
+  }
+  return toCount(projectCounts.value.tags);
+});
 
 const sensorEntries = computed(() => {
   const counts = projectCounts.value;
@@ -851,9 +856,7 @@ const refreshProjects = async () => {
 const openPrivateModal = async (prefillRecordId) => {
   privateError.value = "";
   privateStatus.value = "";
-  if (prefillRecordId !== undefined) {
-    zenodoRecordInput.value = String(prefillRecordId || "");
-  }
+  zenodoRecordInput.value = String(prefillRecordId || "");
   await refreshPrivateRecords();
   isPrivateModalOpen.value = true;
 };
