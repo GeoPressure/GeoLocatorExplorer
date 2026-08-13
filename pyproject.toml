@@ -1,0 +1,8 @@
+[project]
+name = "geolocator-explorer-data"
+version = "0.1.0"
+description = "Raw-data processing dependencies for GeoLocatorExplorer"
+requires-python = ">=3.9"
+dependencies = [
+  "pandas",
+]

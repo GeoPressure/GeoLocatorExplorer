@@ -54,19 +54,19 @@ The processor writes files only when their serialized content changes and remove
 # 1) install JS dependencies
 npm install
 
-# 2) prepare local Python env for scripts/process_data.py
-[ -x .venv/bin/python ] || python3 -m venv .venv
-.venv/bin/python -m pip install pandas
+# 2) install Python dependencies for scripts/process_data.py
+# Install uv first if needed: https://docs.astral.sh/uv/getting-started/installation/
+uv sync
 
 # 3) set env vars
 cp .env.example .env
 # then set at least: VITE_MAPBOX_TOKEN
 
 # 4) build processed data assets from raw_data/
-.venv/bin/python scripts/process_data.py
+uv run python scripts/process_data.py
 
 # optional: skip pressurepaths processing for faster builds
-.venv/bin/python scripts/process_data.py --skip-pressurepaths
+uv run python scripts/process_data.py --skip-pressurepaths
 
 # 5) start local dev server
 npm run dev
