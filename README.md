@@ -113,6 +113,18 @@ npm run build
 
 Try BirdView mode in full screen.
 
+## Private datapackages
+
+In the Project view, open the private Zenodo dialog and paste the full share link
+from Zenodo’s **Share → Links** dialog, then select **Load Record**. The link must
+grant access to the record and its files. No personal access token is needed for
+a share link. Record URLs, DOIs and record ids are also accepted, with an optional
+personal access token for restricted files.
+
+Processed data is cached in this browser and appears in the project and tag views.
+The share token and personal access token are not stored in the cache. Use
+**Remove** in the dialog to delete a cached datapackage.
+
 ## Tech stack
 
 <table width="100%">

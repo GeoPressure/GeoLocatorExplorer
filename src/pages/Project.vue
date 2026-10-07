@@ -380,6 +380,7 @@
       v-model="isPrivateModalOpen"
       v-model:recordInput="zenodoRecordInput"
       v-model:tokenInput="zenodoTokenInput"
+      :selectedRecordId="selectedProject?.is_private ? normalizeZenodoId(selectedProject.record_id) : ''"
       :records="privateRecords"
       :status="privateStatus"
       :error="privateError"
@@ -494,9 +495,12 @@ const projectSlugIndex = computed(
   () =>
     new Map(
       projects.value
-        .map((project) => projectKey(project))
-        .filter(Boolean)
-        .map((id) => [projectSlug(id), id]),
+        .flatMap((project) => {
+          const id = projectKey(project);
+          return project.is_private
+            ? [[projectSlug(id), id], [`private-zenodo-${project.concept_id}`, id]]
+            : [[projectSlug(id), id]];
+        }),
     ),
 );
 
@@ -898,9 +902,13 @@ const loadPrivateZenodoRecord = async () => {
     privateStatus.value = "Saving processed datapackage in this browser...";
     await savePrivateDatapackage(record);
     zenodoRecordInput.value = "";
+    zenodoTokenInput.value = "";
     await refreshProjects();
     privateStatus.value = "Private datapackage stored in this browser.";
-    await updateProject(record.project.id);
+    const importedProject = projects.value.find(
+      (project) => normalizeZenodoId(project.record_id) === recordIdKey,
+    );
+    await updateProject(projectKey(importedProject));
   } catch (error) {
     console.error("Failed to load private Zenodo record:", error);
     privateError.value = error?.message || "Failed to load private Zenodo record.";

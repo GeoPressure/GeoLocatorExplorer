@@ -108,7 +108,7 @@ const extractRecordId = (value) => {
   const text = cleanText(value);
   const match = text.match(/zenodo\.(\d+)$/i) || text.match(/records\/(\d+)/i) || text.match(/^(\d+)$/);
   if (!match) {
-    throw new Error("Enter a Zenodo record id, record URL, or DOI.");
+    throw new Error("Enter a Zenodo share link, record URL, DOI, or record id.");
   }
   return match[1];
 };
@@ -121,10 +121,18 @@ const buildHeaders = (token) => {
   return headers;
 };
 
+const withShareToken = (url, shareToken) => {
+  const requestUrl = new URL(url);
+  if (shareToken && requestUrl.origin === "https://zenodo.org") {
+    requestUrl.searchParams.set("token", shareToken);
+  }
+  return requestUrl.href;
+};
+
 const fetchJSON = async (url, headers) => {
   const response = await fetch(url, { headers });
   if (!response.ok) {
-    throw new Error(`Zenodo request failed (${response.status}) for ${url}`);
+    throw new Error(`Zenodo request failed (${response.status}) for ${url.split("?")[0]}. Check the share link or access token.`);
   }
   return response.json();
 };
@@ -132,7 +140,7 @@ const fetchJSON = async (url, headers) => {
 const fetchText = async (url, headers) => {
   const response = await fetch(url, { headers });
   if (!response.ok) {
-    throw new Error(`Zenodo file download failed (${response.status}) for ${url}`);
+    throw new Error(`Zenodo file download failed (${response.status}) for ${url.split("?")[0]}. Check the share link or access token.`);
   }
   return response.text();
 };
@@ -144,12 +152,12 @@ const describeAccessProblem = (record, token) => {
   const hasToken = Boolean(cleanText(token));
   if (["embargoed", "restricted", "closed"].includes(accessStatus)) {
     return hasToken
-      ? "Zenodo returned this record without accessible files. Check that the token has permission to read this record."
-      : "This Zenodo record is not openly accessible. Add a token with permission to read the record.";
+      ? "Zenodo returned this record without accessible files. Check that the share link or access token has permission to read this record."
+      : "This Zenodo record is not openly accessible. Paste a share link or add an access token with permission to read the record.";
   }
   return hasToken
-    ? "Zenodo returned this record without accessible files. Check that the token is valid and has permission to read the files."
-    : "Zenodo returned this record without accessible files. Add a token if the files are embargoed or restricted.";
+    ? "Zenodo returned this record without accessible files. Check that the share link or access token is valid and has permission to read the files."
+    : "Zenodo returned this record without accessible files. Paste a share link or add an access token if the files are embargoed or restricted.";
 };
 
 const contributorsFromRecord = (record) =>
@@ -659,12 +667,15 @@ export const processDatapackage = ({ datapackage, tables, record, recordId }) =>
 
 export const loadZenodoDatapackage = async ({ record: recordInput, token, onProgress = noop }) => {
   const recordId = extractRecordId(recordInput);
-  const headers = buildHeaders(token);
+  const shareToken = /^https?:\/\//i.test(cleanText(recordInput))
+    ? new URL(cleanText(recordInput)).searchParams.get("token")
+    : null;
+  const headers = buildHeaders(shareToken ? "" : token);
   onProgress(`Resolving Zenodo record ${recordId}...`);
-  const record = await fetchJSON(`${ZENODO_API}/${recordId}`, headers);
+  const record = await fetchJSON(withShareToken(`${ZENODO_API}/${recordId}`, shareToken), headers);
   const files = Array.isArray(record.files) ? record.files : [];
   if (!files.length) {
-    throw new Error(describeAccessProblem(record, token));
+    throw new Error(describeAccessProblem(record, shareToken || token));
   }
   const fileByName = new Map(files.map((file) => [basename(file.key || file.filename || file.name), file]));
   const datapackageFile = files.find((file) => basename(file.key || file.filename || file.name) === "datapackage.json");
@@ -676,11 +687,11 @@ export const loadZenodoDatapackage = async ({ record: recordInput, token, onProg
     throw new Error(
       availableFiles.length
         ? `This Zenodo record does not expose a datapackage.json file. Visible files: ${availableFiles.join(", ")}.`
-        : describeAccessProblem(record, token),
+        : describeAccessProblem(record, shareToken || token),
     );
   }
   onProgress(`Downloading datapackage.json from Zenodo record ${recordId}...`);
-  const datapackage = JSON.parse(await fetchText(zenodoFileUrl(datapackageFile), headers));
+  const datapackage = JSON.parse(await fetchText(withShareToken(zenodoFileUrl(datapackageFile), shareToken), headers));
   const resources = Array.isArray(datapackage.resources) ? datapackage.resources : [];
   const tables = {};
   const downloadableResources = resources.filter((resource) => {
@@ -698,7 +709,7 @@ export const loadZenodoDatapackage = async ({ record: recordInput, token, onProg
       continue;
     }
     onProgress(`Downloading ${name} (${index + 1}/${downloadableResources.length})...`);
-    const text = await fetchText(zenodoFileUrl(file), headers);
+    const text = await fetchText(withShareToken(zenodoFileUrl(file), shareToken), headers);
     onProgress(`Parsing ${name} (${index + 1}/${downloadableResources.length})...`);
     tables[name] = parseCSV(text);
   }
