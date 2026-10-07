@@ -17,13 +17,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install and Build 🔧
         run: |
           npm ci --no-audit --no-fund
-          npm run build
+          npm run check
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4

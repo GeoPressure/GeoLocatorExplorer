@@ -43,7 +43,7 @@ const normalizeDateTime = (value) => {
 
 const basename = (path) =>
   String(path || "")
-    .split(/[/?#]/)[0]
+    .split(/[?#]/)[0]
     .split("/")
     .filter(Boolean)
     .pop();

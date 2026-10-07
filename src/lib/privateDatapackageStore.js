@@ -28,7 +28,8 @@ const withStore = async (mode, callback) => {
     const transaction = db.transaction(STORE_NAME, mode);
     const store = transaction.objectStore(STORE_NAME);
     const request = callback(store);
-    request.onsuccess = () => resolve(request.result);
+    transaction.oncomplete = () => resolve(request.result);
+    transaction.onabort = () => reject(transaction.error || new DOMException("Datapackage storage transaction aborted.", "AbortError"));
     request.onerror = () => reject(request.error);
   });
 };

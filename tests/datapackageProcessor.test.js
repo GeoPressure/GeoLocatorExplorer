@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test, vi } from "vitest";
 import { loadZenodoDatapackage } from "../src/lib/datapackageProcessor.js";
 
 const record = {
@@ -14,9 +14,9 @@ for (const input of [
   { name: "DOI with personal token", record: "10.5281/zenodo.123", token: "personal-secret" },
   { name: "public record", record: "123" },
 ]) {
-  test(`loads ${input.name} and authorizes every download`, async (t) => {
+  test(`loads ${input.name} and authorizes every download`, async () => {
     const requests = [];
-    t.mock.method(globalThis, "fetch", async (url, options) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation( async (url, options) => {
       requests.push({ url: new URL(url), headers: options.headers });
       if (requests.length === 1) return Response.json(record);
       if (requests.length === 2) return Response.json({ resources: [{ name: "tags", path: "tags.csv" }] });
@@ -35,9 +35,9 @@ for (const input of [
 }
 
 for (const failedRequest of [1, 2, 3]) {
-  test(`failed request ${failedRequest} does not expose the share token`, async (t) => {
+  test(`failed request ${failedRequest} does not expose the share token`, async () => {
     let requests = 0;
-    t.mock.method(globalThis, "fetch", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation( async () => {
       requests += 1;
       if (requests === failedRequest) return new Response("", { status: 403 });
       if (requests === 1) return Response.json(record);
@@ -49,3 +49,24 @@ for (const failedRequest of [1, 2, 3]) {
     );
   });
 }
+
+test("imports nested resource paths and quoted CSV fields", async () => {
+  const resources = {
+    "tags.csv": 'tag_id,scientific_name,tag_comments\r\nbird,Ficedula hypoleuca,"first line, with comma\nsecond line ""quoted"""\r\n',
+    "staps.csv": "tag_id,stap_id,start,end\nbird,1,2024-01-01,2024-01-03\n",
+    "paths.csv": "tag_id,stap_id,type,lat,lon\nbird,1,most_likely,52,-3\n",
+  };
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+    const path = new URL(url).pathname;
+    if (path.endsWith("/123")) return Response.json({ files: ["datapackage.json", ...Object.keys(resources)].map((key) => ({ key: `data/${key}`, links: { self: `https://zenodo.org/api/records/123/files/data/${key}/content` } })) });
+    if (path.endsWith("datapackage.json/content")) return Response.json({ resources: Object.keys(resources).map((key) => ({ name: key.split(".")[0], path: `data/${key}` })) });
+    return new Response(resources[path.split("/").at(-2)]);
+  });
+  const result = await loadZenodoDatapackage({ record: "123" });
+  assert.equal(result.tags.length, 1);
+  assert.equal(result.tagDataById.bird.tag_comments, 'first line, with comma\nsecond line "quoted"');
+  assert.deepEqual(result.projectData.tags[0].staps[0], {
+    stap_id: "1", longitude: -3, latitude: 52, duration_days: 2,
+    start: "2024-01-01T00:00:00Z", end: "2024-01-03T00:00:00Z",
+  });
+});

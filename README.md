@@ -86,6 +86,33 @@ npm run fix:threebox-encoding
 npm run build
 ```
 
+## Tests and error checks
+
+Use Node.js 24 LTS for the development tools and CI.
+
+```bash
+npm test            # Run unit and component tests once
+npm run test:watch  # Rerun tests while editing
+npm run lint        # Check JavaScript and Vue for errors
+npm run check       # Lint, test, then build
+npm audit           # Review dependency advisories
+```
+
+Tests cover Zenodo authorization and token handling, conditional inputs, modal
+selection/dismissal, private/public project identities, import/removal selection,
+CSV resource paths, and missing coordinates/pressure values. Storage tests use
+fake-indexeddb to exercise writes, replacement, deletion, commit timing, and
+aborts. Tests use synthetic fixtures and mocked network and Mapbox rendering;
+they require no private credentials and do not verify the live Zenodo service,
+browser storage quotas, or WebGL rendering.
+
+[Vitest](https://vitest.dev/) runs the tests, with
+[Vue Test Utils](https://test-utils.vuejs.org/) and jsdom for components.
+[ESLint](https://eslint.org/) uses its recommended JavaScript checks and
+[eslint-plugin-vue’s essential rules](https://eslint.vuejs.org/rules/) to catch
+errors without imposing a formatting style. Checks run on pull requests and
+before deployment.
+
 ## What this app does
 
 ### Global view

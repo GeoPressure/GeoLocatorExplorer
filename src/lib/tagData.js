@@ -1,4 +1,5 @@
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
+export const toNumber = (value) => value == null || value === "" ? NaN : Number(value);
 
 export const lerp = (from, to, t) => from + (to - from) * t;
 
@@ -122,7 +123,7 @@ export const buildMetrics = (values) => {
     if (!Array.isArray(series) || !series.length) {
       return false;
     }
-    return series.some((value) => Number.isFinite(Number(value)));
+    return series.some((value) => Number.isFinite(toNumber(value)));
   });
 };
 
@@ -226,8 +227,8 @@ export const buildTimeTimeline = (data) => {
   const length = Math.min(data.datetime.length, data.lon.length, data.lat.length);
   const timeline = [];
   for (let i = 0; i < length; i += 1) {
-    const lon = Number(data.lon[i]);
-    const lat = Number(data.lat[i]);
+    const lon = toNumber(data.lon[i]);
+    const lat = toNumber(data.lat[i]);
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
       continue;
     }
@@ -239,8 +240,8 @@ export const buildTimeTimeline = (data) => {
     const rawAlt = data.altitude?.[i];
     const rawSurface = data.values?.surface_pressure?.[i];
     const stapId = data.stap_id?.[i];
-    const altitude = Number.isFinite(Number(rawAlt)) ? Math.max(0, Number(rawAlt)) : 0;
-    const surfacePressure = Number.isFinite(Number(rawSurface)) ? Number(rawSurface) : null;
+    const altitude = Number.isFinite(toNumber(rawAlt)) ? Math.max(0, toNumber(rawAlt)) : 0;
+    const surfacePressure = Number.isFinite(toNumber(rawSurface)) ? toNumber(rawSurface) : null;
     timeline.push({
       index: i,
       datetime,
@@ -250,7 +251,7 @@ export const buildTimeTimeline = (data) => {
       stapId,
       altitude,
       metrics: {
-        altitude: Number.isFinite(altitude) ? altitude : null,
+        altitude: Number.isFinite(toNumber(rawAlt)) ? altitude : null,
         surface_pressure: surfacePressure,
       },
     });
@@ -270,6 +271,8 @@ export const buildDistanceTimeline = (timeline) => {
   let count = 0;
   let altSum = 0;
   let surfSum = 0;
+  let altCount = 0;
+  let surfCount = 0;
   let lastEntry = null;
 
   const flush = () => {
@@ -279,8 +282,8 @@ export const buildDistanceTimeline = (timeline) => {
       distanceKm += haversineKm(prevOut, lastEntry);
     }
 
-    const avgAlt = altSum / count;
-    const avgSurf = surfSum / count;
+    const avgAlt = altCount ? altSum / altCount : null;
+    const avgSurf = surfCount ? surfSum / surfCount : null;
 
     const next = {
       ...lastEntry,
@@ -295,6 +298,7 @@ export const buildDistanceTimeline = (timeline) => {
     out.push(next);
     prevOut = next;
     count = altSum = surfSum = 0;
+    altCount = surfCount = 0;
   };
 
   for (const e of timeline) {
@@ -306,11 +310,11 @@ export const buildDistanceTimeline = (timeline) => {
       lon = Number(e.lon);
     }
 
-    const alt = Number(e.metrics?.altitude);
-    const surf = Number(e.metrics?.surface_pressure);
+    const alt = toNumber(e.metrics?.altitude);
+    const surf = toNumber(e.metrics?.surface_pressure);
 
-    if (Number.isFinite(alt)) altSum += alt;
-    if (Number.isFinite(surf)) surfSum += surf;
+    if (Number.isFinite(alt)) { altSum += alt; altCount += 1; }
+    if (Number.isFinite(surf)) { surfSum += surf; surfCount += 1; }
 
     count += 1;
     lastEntry = e;
@@ -411,8 +415,8 @@ const buildPathContext = (pathsRaw, stapsRaw) => {
   const seenOrder = [];
 
   sourceRows.forEach((row) => {
-    const lon = Number(row?.lon);
-    const lat = Number(row?.lat);
+    const lon = toNumber(row?.lon);
+    const lat = toNumber(row?.lat);
     if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
       return;
     }

@@ -12,7 +12,11 @@
     "prebuild": "npm run fix:threebox-encoding",
     "build": "vite build",
     "postbuild": "cp dist/index.html dist/404.html",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --max-warnings 0",
+    "check": "npm run lint && npm test && npm run build"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
@@ -20,16 +24,24 @@
     "mapbox-gl": "^3.20.0",
     "plotly.js-dist-min": "^3.4.0",
     "threebox-plugin": "^2.2.7",
-    "vue": "^3.5.30",
+    "vue": "^3.5.43",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@vitejs/plugin-vue": "^6.0.5",
+    "@vue/test-utils": "^2.5.1",
     "autoprefixer": "^10.4.27",
+    "eslint": "^10.12.0",
+    "eslint-plugin-vue": "^10.11.1",
+    "fake-indexeddb": "^6.2.5",
+    "globals": "^17.13.0",
+    "jsdom": "^30.1.2",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "vitest": "^5.0.3"
   },
   "author": "Raphaël Nussbaumer",
   "license": "MIT",

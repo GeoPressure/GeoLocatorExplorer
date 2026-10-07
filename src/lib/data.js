@@ -1,4 +1,4 @@
-import { normalizeTable } from "./tagData";
+import { normalizeTable, toNumber } from "./tagData";
 import { loadPrivateContext, normalizeZenodoId, privateProjectKey } from "./privateData";
 
 const cache = new Map();
@@ -42,8 +42,8 @@ const buildPrivateGlobeTag = (tag, tagData, canonicalProjectId) => {
   const stapStats = new Map();
   sourceRows.forEach((row) => {
     const stapId = String(row?.stap_id ?? "").trim();
-    const lon = Number(row?.lon);
-    const lat = Number(row?.lat);
+    const lon = toNumber(row?.lon);
+    const lat = toNumber(row?.lat);
     if (!stapId || !Number.isFinite(lon) || !Number.isFinite(lat)) {
       return;
     }

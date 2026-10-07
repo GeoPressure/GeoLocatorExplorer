@@ -409,6 +409,7 @@ import {
   normalizeAngle,
   normalizePressureData,
   normalizeTable,
+  toNumber,
   smoothAngle,
   smoothingAlpha,
 } from "../lib/tagData";
@@ -872,8 +873,6 @@ const observations = computed(() => {
   const list = Array.isArray(tagData.value?.observations) ? tagData.value.observations : [];
   return list
     .map((obs, index) => {
-      const lat = Number(obs?.latitude);
-      const lon = Number(obs?.longitude);
       return {
         index,
         datetime: obs?.datetime || "",
@@ -1328,7 +1327,6 @@ const updatePlot = () => {
   if (!plotContainer.value || !pressureData) {
     return;
   }
-  const values = {};
   const availableMetrics = metrics.value;
   if (!availableMetrics.length) {
     Plotly.react(
@@ -1542,7 +1540,7 @@ const updatePlot = () => {
         pad: { t: 0, r: 0, b: 0, l: 0 },
         active: Math.max(0, availableMetrics.indexOf(selectedMetric.value)),
         showactive: true,
-        buttons: availableMetrics.map((metric, index) => {
+        buttons: availableMetrics.map((metric) => {
           const visibility = Array(traces.length).fill(false);
           const group = traceGroups.get(metric);
           if (group) {
@@ -1616,7 +1614,6 @@ const updateMap = () => {
   if (!mapInstance || !mapReady) {
     return;
   }
-  const emptyCollection = { type: "FeatureCollection", features: [] };
   let minLon = 180;
   let minLat = 90;
   let maxLon = -180;
@@ -1677,8 +1674,8 @@ const updateMap = () => {
   const stapSourceRows = mostLikelyRows.length ? mostLikelyRows : simulationRows;
   stapSourceRows.forEach((row) => {
     const stapId = row?.stap_id;
-    const lon = Number(row?.lon);
-    const lat = Number(row?.lat);
+    const lon = toNumber(row?.lon);
+    const lat = toNumber(row?.lat);
     if (stapId == null || !Number.isFinite(lon) || !Number.isFinite(lat)) {
       return;
     }
@@ -1726,13 +1723,13 @@ const updateMap = () => {
   const tagColor = "#A1A1AA";
   const mostLikelyCoords = mostLikelyRows
     .filter((row) => row?.lon != null && row?.lat != null)
-    .map((row) => [Number(row.lon), Number(row.lat)])
+    .map((row) => [toNumber(row.lon), toNumber(row.lat)])
     .filter(([lon, lat]) => Number.isFinite(lon) && Number.isFinite(lat));
   const simulationByStap = new Map();
   simulationRows.forEach((row) => {
     const stapId = row?.stap_id;
-    const lon = Number(row?.lon);
-    const lat = Number(row?.lat);
+    const lon = toNumber(row?.lon);
+    const lat = toNumber(row?.lat);
     if (stapId == null || !Number.isFinite(lon) || !Number.isFinite(lat)) {
       return;
     }
@@ -1911,8 +1908,8 @@ const updateMap = () => {
     : [];
   const observationFeatures = observationRows
     .map((obs, index) => {
-      const lon = Number(obs?.longitude);
-      const lat = Number(obs?.latitude);
+      const lon = toNumber(obs?.longitude);
+      const lat = toNumber(obs?.latitude);
       if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
         return null;
       }

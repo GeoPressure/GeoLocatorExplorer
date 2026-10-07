@@ -637,7 +637,6 @@ const setHover = (feature, lngLat, { lock = false } = {}) => {
 
   const tagLink = `${baseUrl}tag/${encodeURIComponent(tagId)}`;
   const primaryProject = (meta.projectLinks || [])[0];
-  const projectTitle = primaryProject ? primaryProject.title : "—";
   const projectLink = primaryProject
     ? `${baseUrl}project/${encodeURIComponent(projectSlug(primaryProject.id))}`
     : "";
@@ -649,7 +648,6 @@ const setHover = (feature, lngLat, { lock = false } = {}) => {
     iucnLabel: meta.iucnLabel || "",
     tagId,
     tagLink,
-    projectTitle,
     projectLink,
   });
   hoverPopup = createSidePopup(mapInstance, lngLat, html, hoverPopup);

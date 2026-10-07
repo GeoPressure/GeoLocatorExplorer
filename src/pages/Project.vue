@@ -933,14 +933,20 @@ const selectPrivateRecord = async (id) => {
 };
 
 const removePrivateRecord = async (id) => {
+  const currentId = selectedId.value;
   await deletePrivateDatapackage(id);
   await refreshProjects();
-  if (selectedId.value === id) {
-    const fallback = projectKey(projects.value[0] || {});
-    if (fallback) {
-      await updateProject(fallback);
-    }
+  if (!projects.value.length) {
+    selectedId.value = "";
+    await router.replace({ name: "project", params: { conceptId: "" } });
+    await updateProjectData();
+    return;
   }
+  await updateProject(
+    projects.value.some((project) => projectKey(project) === currentId)
+      ? currentId
+      : projectKey(projects.value[0] || {}),
+  );
 };
 
 const openProjectPicker = () => {
@@ -1017,8 +1023,6 @@ const setTagHover = (tagId, lngLat, { lock = false } = {}) => {
   setHighlightTag(tagId);
   const meta = tagInfoMap.get(tagId) || {};
   const tagLink = `${baseUrl}tag/${encodeURIComponent(tagId)}`;
-  const projectId = projectKey(selectedProject.value || {});
-  const projectTitle = selectedProject.value?.title || "";
   const projectLink = "";
   const html = buildTagPopupHtml({
     species: meta.commonName || meta.scientificName || "Unknown species",
@@ -1028,7 +1032,6 @@ const setTagHover = (tagId, lngLat, { lock = false } = {}) => {
     iucnLabel: meta.iucnLabel || "",
     tagId,
     tagLink,
-    projectTitle,
     projectLink,
   });
   hoverPopup = createSidePopup(mapInstance, lngLat, html, hoverPopup);
