@@ -52,6 +52,18 @@
     </header>
 
     <RouterView />
+
+    <footer class="site-credits" aria-label="Organization links">
+      <a href="https://www.vogelwarte.ch/" target="_blank" rel="noopener noreferrer" aria-label="vogelwarte.ch — Swiss Ornithological Institute">
+        <img :src="`${baseUrl}vogelwarte-favicon.png`" alt="" width="16" height="16" />
+        vogelwarte.ch
+      </a>
+      <span aria-hidden="true" class="text-white/25">·</span>
+      <a href="https://geopressure.org/" target="_blank" rel="noopener noreferrer">
+        <img :src="`${baseUrl}geopressure-favicon.png`" alt="" width="16" height="16" />
+        geopressure.org
+      </a>
+    </footer>
   </div>
 </template>
 
@@ -61,6 +73,7 @@ import { useRoute } from "vue-router";
 
 const isMenuOpen = ref(false);
 const route = useRoute();
+const baseUrl = import.meta.env.BASE_URL;
 
 const closeMenu = () => {
   isMenuOpen.value = false;

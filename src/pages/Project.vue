@@ -1,7 +1,7 @@
 <template>
-  <section class="min-h-screen w-full bg-[color:var(--ink)] px-6 pb-6 pt-24">
+  <section class="min-h-screen w-full bg-[color:var(--ink)] px-6 pb-14 pt-24">
     <div
-      class="grid grid-cols-1 gap-6 lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[minmax(360px,500px)_minmax(0,1fr)]"
+      class="grid grid-cols-1 gap-6 lg:h-[calc(100vh-9.5rem)] lg:grid-cols-[minmax(360px,500px)_minmax(0,1fr)]"
     >
       <div class="panel order-2 h-auto overflow-visible lg:order-1 lg:h-full lg:overflow-y-auto">
         <div>

@@ -5,7 +5,7 @@
     <div class="pointer-events-none absolute inset-0">
       <div
         ref="panelRef"
-        class="absolute bottom-4 left-4 right-4 top-auto w-auto sm:bottom-auto sm:left-6 sm:right-auto sm:top-28 sm:w-[min(92vw,420px)]"
+        class="absolute bottom-14 left-4 right-4 top-auto w-auto sm:bottom-auto sm:left-6 sm:right-auto sm:top-28 sm:w-[min(92vw,420px)]"
       >
         <div class="panel pointer-events-auto max-h-[58vh] overflow-y-auto sm:max-h-none">
           <div class="flex items-start justify-between gap-3">
@@ -165,7 +165,7 @@
       </div>
       <div
         v-if="showNavTips"
-        class="pointer-events-auto absolute bottom-4 right-4 hidden w-[min(88vw,360px)] rounded-2xl border border-white/10 bg-gradient-to-br from-black/80 via-black/60 to-black/40 p-5 text-sm text-white/75 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur sm:block sm:bottom-6 sm:right-6"
+        class="pointer-events-auto absolute bottom-4 right-4 hidden w-[min(88vw,360px)] rounded-2xl border border-white/10 bg-gradient-to-br from-black/80 via-black/60 to-black/40 p-5 text-sm text-white/75 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur sm:block sm:bottom-14 sm:right-6"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-2">
