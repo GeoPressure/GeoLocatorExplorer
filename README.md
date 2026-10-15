@@ -7,7 +7,7 @@ This visualization tool shows all Geolocator studies submitted to the [Geolocato
 ## Raw data source
 
 The `raw_data/` folder is the source used to build the frontend data assets.  
-It consists of a snapshot from Zenodo record `10.5281/zenodo.18187093` (not yet published).
+The current frontend assets use public Master release `2026.0`, generated on 2026-10-15 in the adjacent `GeoLocatorMaster/data/master/` directory for Zenodo record `10.5281/zenodo.18187093`. The source files were also copied into `raw_data/`. Raw measurements are omitted from this release and are not used by the frontend processor.
 
 Core input files are:
 
@@ -64,6 +64,9 @@ cp .env.example .env
 
 # 4) build processed data assets from raw_data/
 uv run python scripts/process_data.py
+
+# alternatively, process the latest local public Master export directly
+uv run python scripts/process_data.py --input ../GeoLocatorMaster/data/master
 
 # optional: skip pressurepaths processing for faster builds
 uv run python scripts/process_data.py --skip-pressurepaths
