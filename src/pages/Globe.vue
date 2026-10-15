@@ -165,7 +165,8 @@
       </div>
       <div
         v-if="showNavTips"
-        class="pointer-events-auto absolute bottom-4 right-4 hidden w-[min(88vw,360px)] rounded-2xl border border-white/10 bg-gradient-to-br from-black/80 via-black/60 to-black/40 p-5 text-sm text-white/75 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur sm:block sm:bottom-14 sm:right-6"
+        id="navigation-tips"
+        class="pointer-events-auto absolute right-4 top-28 w-[min(88vw,360px)] rounded-2xl border border-white/10 bg-gradient-to-br from-black/80 via-black/60 to-black/40 p-5 text-sm text-white/75 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur sm:bottom-14 sm:right-6 sm:top-auto"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-2">
@@ -192,7 +193,7 @@
           <button
             type="button"
             class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:border-white/30 hover:text-white"
-            @click="showNavTips = false"
+            @click="dismissNavTips"
             aria-label="Dismiss navigation tips"
           >
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none">
@@ -207,10 +208,22 @@
           </button>
         </div>
         <ul class="mt-3 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-white/80">
+          <li>{{ isMobile ? "Drag to move the globe; pinch to zoom." : "Drag to move the globe; scroll to zoom." }}</li>
           <li>Each dot represents an individual bird, colored by project.</li>
-          <li>Click a dot to learn more about the bird or its project.</li>
+          <li>{{ isMobile ? "Tap" : "Click" }} a dot to learn more about the bird or its project.</li>
         </ul>
       </div>
+      <button
+        v-else
+        type="button"
+        class="pointer-events-auto absolute right-4 top-28 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/60 text-lg text-white/70 backdrop-blur transition hover:border-white/30 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)] sm:bottom-14 sm:right-6 sm:top-auto"
+        aria-label="Show navigation tips"
+        aria-controls="navigation-tips"
+        title="Navigation tips"
+        @click="showNavTips = true"
+      >
+        ?
+      </button>
     </div>
   </section>
 </template>
@@ -233,7 +246,12 @@ const isPlaying = ref(true);
 const isScrubbing = ref(false);
 const wasPlayingBeforeScrub = ref(false);
 const speed = ref(1);
-const showNavTips = ref(true);
+const navTipsStorageKey = "geolocator-explorer:nav-tips-dismissed:v1";
+const showNavTips = ref(localStorage.getItem(navTipsStorageKey) !== "true");
+const dismissNavTips = () => {
+  showNavTips.value = false;
+  localStorage.setItem(navTipsStorageKey, "true");
+};
 const speedOptions = [0.5, 1, 2, 4];
 const currentDay = ref(1);
 const totalDays = ref(100);
