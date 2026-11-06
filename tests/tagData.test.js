@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { buildMetrics, buildTimeTimeline, buildDistanceTimeline, normalizePressureData, smoothAngle, findClosestIndex, buildFallbackTimelines } from "../src/lib/tagData";
+import { advanceAlongTimeline, buildHeadings, buildMetrics, buildTimeTimeline, buildDistanceTimeline, normalizePressureData, smoothAngle, findClosestIndex, buildFallbackTimelines } from "../src/lib/tagData";
 
 test("does not offer pressure metrics with only missing values", () => {
   expect(buildMetrics({ altitude: [null, null], surface_pressure: ["", null] })).toEqual([]);
@@ -54,4 +54,47 @@ test("keeps missing altitude out of distance averages while rendering it at grou
   expect(timeline[0].altitude).toBe(0);
   expect(timeline[0].metrics.altitude).toBeNull();
   expect(buildDistanceTimeline(timeline)[0].metrics.altitude).toBe(10);
+});
+
+test("buildHeadings skips stationary rows and looks ahead to the next movement", () => {
+  const timeline = [
+    { lon: 0, lat: 0 },
+    { lon: 0, lat: 0 },
+    { lon: 0, lat: 0.0001 },
+    { lon: 1, lat: 0 },
+    { lon: 1, lat: 1 },
+  ];
+  const headings = buildHeadings(timeline, 2);
+  expect(headings).toHaveLength(5);
+  // Stationary rows face the upcoming eastward flight instead of defaulting to north.
+  expect(headings[0]).toBeCloseTo(90, 0);
+  expect(headings[1]).toBeCloseTo(90, 0);
+  expect(headings[3]).toBeCloseTo(0, 0);
+  // Last row has nothing ahead and keeps the previous heading.
+  expect(headings[4]).toBeCloseTo(headings[3], 6);
+  expect(buildHeadings([], 2)).toEqual([]);
+});
+
+test("advanceAlongTimeline caps distance travelled but not time spent stationary", () => {
+  // Three stationary rows, then two moving rows ~111 km apart, then the end.
+  const timeline = [
+    { lon: 0, lat: 0 },
+    { lon: 0, lat: 0 },
+    { lon: 0, lat: 0 },
+    { lon: 1, lat: 0 },
+    { lon: 2, lat: 0 },
+    { lon: 2, lat: 0 },
+  ];
+  // Stationary rows pass at full row speed even with a tight km cap.
+  expect(advanceAlongTimeline(timeline, 0, 0, 2, 1)).toEqual({ index: 2, frac: 0 });
+  // A moving segment is capped: ~111 km segment, 11.1 km allowed -> ~10% of the way.
+  const capped = advanceAlongTimeline(timeline, 2, 0, 1, 11.12);
+  expect(capped.index).toBe(2);
+  expect(capped.frac).toBeCloseTo(0.1, 2);
+  // Without a cap it advances by whole rows and keeps the fraction.
+  const free = advanceAlongTimeline(timeline, 2, 0.5, 1.25);
+  expect(free.index).toBe(3);
+  expect(free.frac).toBeCloseTo(0.75, 6);
+  // Reaching the end wraps to the start.
+  expect(advanceAlongTimeline(timeline, 5, 0, 1)).toEqual({ index: 0, frac: 0 });
 });

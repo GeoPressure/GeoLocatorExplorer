@@ -63,6 +63,73 @@ export const bearingDegrees = (from, to) => {
   return (toDeg(Math.atan2(y, x)) + 360) % 360;
 };
 
+// Heading of travel at each timeline index: the bearing towards the first later point
+// that is at least `minKm` away. Consecutive rows are often identical (stationary periods)
+// or only a few hundred metres apart, so a plain "bearing to next row" is undefined or
+// noisy. Indices with no such point ahead reuse the last known heading.
+export const buildHeadings = (timeline, minKm = 2) => {
+  const n = Array.isArray(timeline) ? timeline.length : 0;
+  const headings = new Array(n).fill(NaN);
+  let j = 0;
+  for (let i = 0; i < n; i += 1) {
+    j = Math.max(j, i + 1);
+    while (j < n && haversineKm(timeline[i], timeline[j]) < minKm) {
+      j += 1;
+    }
+    if (j >= n) {
+      break;
+    }
+    headings[i] = bearingDegrees(timeline[i], timeline[j]);
+  }
+  let last = NaN;
+  for (let i = 0; i < n; i += 1) {
+    if (Number.isFinite(headings[i])) {
+      last = headings[i];
+    } else {
+      headings[i] = Number.isFinite(last) ? last : 0;
+    }
+  }
+  return headings;
+};
+
+// Move a fractional position (index + frac) forward along a timeline by `rows` rows, but
+// never more than `maxKm` along the track. Used to cap the bird's ground speed in bird view
+// so flights are followed at a watchable pace while stationary periods still pass quickly.
+// Reaching the last row wraps to the start, like the playback loop.
+export const advanceAlongTimeline = (list, index, frac, rows, maxKm = Infinity) => {
+  const n = Array.isArray(list) ? list.length : 0;
+  if (n < 2) {
+    return { index: 0, frac: 0 };
+  }
+  let i = Math.min(Math.max(Math.trunc(index) || 0, 0), n - 1);
+  let f = Math.min(Math.max(Number(frac) || 0, 0), 1);
+  let rowsLeft = Math.max(0, Number(rows) || 0);
+  let kmLeft = Number.isFinite(maxKm) ? Math.max(0, maxKm) : Infinity;
+  for (let guard = 0; rowsLeft > 1e-9 && guard < 1000000; guard += 1) {
+    if (i >= n - 1) {
+      i = 0;
+      f = 0;
+      rowsLeft -= 1;
+      continue;
+    }
+    const segKm = haversineKm(list[i], list[i + 1]);
+    let take = Math.min(1 - f, rowsLeft);
+    if (Number.isFinite(kmLeft) && segKm > 0) {
+      take = Math.min(take, kmLeft / segKm);
+      kmLeft -= take * segKm;
+    }
+    f += take;
+    rowsLeft -= take;
+    if (f >= 1 - 1e-9) {
+      i += 1;
+      f = 0;
+    } else {
+      break;
+    }
+  }
+  return { index: i, frac: f };
+};
+
 export const destinationPoint = (from, bearing, distanceKm) => {
   const toRad = (value) => (value * Math.PI) / 180;
   const toDeg = (value) => (value * 180) / Math.PI;
