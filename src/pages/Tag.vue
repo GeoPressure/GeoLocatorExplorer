@@ -1842,7 +1842,7 @@ const updatePlot = () => {
       : [],
     xaxis: {
       type: sliderMode.value === "distance" ? "linear" : "date",
-      title: "",
+      title: { text: "" },
       gridcolor: "rgba(255,255,255,0.08)",
       tickfont: { size: 9 },
       autorange: !hasRange,
