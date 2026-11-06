@@ -53,7 +53,7 @@
 
     <RouterView />
 
-    <footer class="site-credits" aria-label="Organization links">
+    <footer v-if="route.name === 'home'" class="site-credits" aria-label="Organization links">
       <a href="https://www.vogelwarte.ch/" target="_blank" rel="noopener noreferrer" aria-label="vogelwarte.ch — Swiss Ornithological Institute">
         <img :src="`${baseUrl}vogelwarte-favicon.png`" alt="" width="16" height="16" />
         vogelwarte.ch

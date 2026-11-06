@@ -45,17 +45,37 @@
               <button class="button-primary" @click="togglePlayback">
                 {{ isPlaying ? "Pause" : "Play" }}
               </button>
-              <div class="flex w-16 items-center gap-2">
+              <label class="flex items-center gap-2">
                 <span class="text-[10px] uppercase tracking-[0.2em] text-white/60">Speed</span>
-                <select
-                  v-model.number="speed"
-                  class="w-16 rounded-full border border-white/20 bg-black/40 px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-white/80"
-                >
-                  <option v-for="option in speedOptions" :key="option" :value="option">
-                    {{ option }}x
-                  </option>
-                </select>
-              </div>
+                <span class="relative inline-flex items-center">
+                  <select
+                    v-model.number="speed"
+                    aria-label="Playback speed"
+                    class="cursor-pointer appearance-none rounded-full border border-white/20 bg-black/40 py-1.5 pl-3.5 pr-8 text-sm font-semibold tabular-nums text-white/90 transition hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)]"
+                  >
+                    <option
+                      v-for="option in speedOptions"
+                      :key="option"
+                      :value="option"
+                      class="bg-[color:var(--ink)] text-white"
+                    >
+                      {{ option }}×
+                    </option>
+                  </select>
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    class="pointer-events-none absolute right-3 h-3.5 w-3.5 text-white/60"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </span>
+              </label>
             </div>
 
             <div class="mt-4 sm:mt-5">
@@ -176,16 +196,16 @@
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"
-                class="h-3.5 w-3.5"
+                class="h-4 w-4"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="1.6"
+                stroke-width="1.8"
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
                 <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v5" />
-                <circle cx="12" cy="16" r="1" />
+                <path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5" />
+                <circle cx="12" cy="16.8" r="0.6" fill="currentColor" />
               </svg>
             </span>
             <p class="text-[11px] uppercase tracking-[0.22em] text-white/70">Navigation tips</p>
@@ -222,7 +242,20 @@
         title="Navigation tips"
         @click="showNavTips = true"
       >
-        ?
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          class="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.6 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.5" />
+          <circle cx="12" cy="16.8" r="0.6" fill="currentColor" />
+        </svg>
       </button>
     </div>
   </section>
