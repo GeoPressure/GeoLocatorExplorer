@@ -1143,6 +1143,15 @@ const setPressureCircleVisibility = (visible) => {
   );
 };
 
+// The simulated paths are hidden in bird view: seen from low over the track they turn
+// into a tangle of lines that hides the bird's own path.
+const setSimulationPathVisibility = (visible) => {
+  if (!mapInstance || !mapInstance.getLayer("tag-paths-line")) {
+    return;
+  }
+  mapInstance.setLayoutProperty("tag-paths-line", "visibility", visible ? "visible" : "none");
+};
+
 const setThreeboxVisibility = (visible) => {
   if (pressureMarker3d) {
     pressureMarker3d.visible = visible;
@@ -1245,6 +1254,7 @@ const applyBirdViewState = (enabled) => {
     mapInstance.setTerrain(null);
   }
   setPressureCircleVisibility(!enabled);
+  setSimulationPathVisibility(!enabled);
   setThreeboxVisibility(enabled);
 };
 
@@ -2224,6 +2234,7 @@ const updateMap = () => {
       id: "tag-paths-line",
       type: "line",
       source: "tag-paths",
+      layout: { visibility: isCameraFollowEnabled.value ? "none" : "visible" },
       paint: {
         "line-color": ["get", "color"],
         "line-width": 2,
