@@ -19,6 +19,7 @@ import csv
 import datetime as dt
 import json
 import re
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -79,6 +80,29 @@ def load_known_contributors(datapackage_path: Path) -> List[Dict[str, Any]]:
     return [c for c in payload.get("contributors") or [] if isinstance(c, dict) and c.get("title")]
 
 
+def loose_name_key(name: str) -> Optional[Tuple[str, str]]:
+    """(family, first given name) without accents, hyphens, case or middle initials.
+
+    Packages spell the same person differently ("Wong, Joanna B." / "Wong, Joanna",
+    "Adamík" / "Adamik", "Macías-Torres" / "Macías Torres", "Stephanie J. Szarmach").
+    """
+    text = unicodedata.normalize("NFKD", name or "")
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+    text = re.sub(r"[-.]", " ", text)
+    if "," in text:
+        family, given = (part.strip() for part in text.split(",", 1))
+    else:
+        tokens = text.split()
+        if len(tokens) < 2:
+            return None
+        family, given = tokens[-1], " ".join(tokens[:-1])
+    family = " ".join(family.split())
+    given_tokens = given.split()
+    if not family or not given_tokens:
+        return None
+    return family, given_tokens[0]
+
+
 def parse_csv_contributors(
     value: str, known: Optional[List[Dict[str, Any]]] = None
 ) -> List[Dict[str, Any]]:
@@ -99,10 +123,25 @@ def parse_csv_contributors(
         for c in known
         if c.get("givenName") and c.get("familyName")
     }
+    loose_counts: Dict[Tuple[str, str], int] = defaultdict(int)
+    loose: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for c in known:
+        key = loose_name_key(c["title"])
+        if key:
+            loose_counts[key] += 1
+            loose[key] = c
+    by_loose = {key: c for key, c in loose.items() if loose_counts[key] == 1}
 
     def person(title: str, match: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if not match:
-            return {"title": title}
+            # A spelling variant of a known person keeps this package's spelling and
+            # takes the ORCID, roles and organization from the Master record.
+            variant = by_loose.get(loose_name_key(title) or ("", ""))
+            if not variant:
+                return {"title": title}
+            return {"title": title} | {
+                key: variant[key] for key in ("path", "roles", "organization") if variant.get(key)
+            }
         return {
             key: match[key]
             for key in ("title", "givenName", "familyName", "path", "roles", "organization")
@@ -385,7 +424,8 @@ def load_resource_descriptors(datapackage_path: Path) -> Dict[str, Dict[str, Any
     base_dir = datapackage_path.parent
     for resource in data["resources"]:
         name = resource["name"]
-        fields = resource["schema"]["fields"]
+        # Non-tabular resources (e.g. params, plain JSON) have no table schema.
+        fields = (resource.get("schema") or {}).get("fields", [])
         path_value = resource["path"]
         resources[name] = {
             "name": name,
