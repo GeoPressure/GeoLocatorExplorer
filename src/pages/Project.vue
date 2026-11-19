@@ -40,7 +40,7 @@
                 autocorrect="off"
                 autocapitalize="off"
                 spellcheck="false"
-                placeholder="Search title, species, author, keyword"
+                placeholder="Search title, species, author"
               />
               <ComboboxButton
                 ref="projectMenuButton"
@@ -83,10 +83,7 @@
                       Private
                     </span>
                   </p>
-                  <p
-                    v-if="projectSubtitle(project)"
-                    class="mt-1 text-[11px] uppercase tracking-[0.2em] text-fg/50"
-                  >
+                  <p v-if="projectSubtitle(project)" class="mt-0.5 text-xs text-fg/60">
                     {{ projectSubtitle(project) }}
                   </p>
                 </div>
@@ -328,6 +325,21 @@
         <div
           class="pointer-events-none absolute inset-0 bg-gradient-to-t from-shade/40 via-transparent to-transparent"
         ></div>
+        <MapTips
+          v-if="projectTags.length"
+          ref="mapLegend"
+          title="Map legend"
+          storage-key="geolocator-explorer:project-map-tips-dismissed:v1"
+          panel-id="project-map-tips"
+          position-class="bottom-3 right-3"
+        >
+          <li>Each line is one bird's track, with one color per bird.</li>
+          <li>
+            Colored circles are the places where it stopped; a larger circle means a longer
+            stay. White circles mark where tags were fitted (larger) and retrieved (smaller).
+          </li>
+          <li>Hover a track to see the bird; click it to keep its details open.</li>
+        </MapTips>
         <div
           v-if="embargoNotice"
           class="absolute inset-0 flex items-center justify-center bg-shade/60 text-center"
@@ -380,6 +392,7 @@ import {
   ComboboxOptions,
 } from "@headlessui/vue";
 import PrivateZenodoModal from "../components/PrivateZenodoModal.vue";
+import MapTips from "../components/MapTips.vue";
 import { loadProjectData, loadProjects } from "../lib/data";
 import { loadZenodoDatapackage } from "../lib/datapackageProcessor";
 import {
@@ -393,7 +406,8 @@ import { normalizeZenodoId } from "../lib/privateData";
 import {
   colorForIndex,
   formatShortDate,
-  normalizeKeywords,
+  personDisplayName,
+  personFamilyName,
   projectSlug,
   sexSymbol,
 } from "../lib/format";
@@ -409,6 +423,7 @@ const projects = ref([]);
 const selectedId = ref("");
 const searchQuery = ref("");
 const projectMenuButton = ref(null);
+const mapLegend = ref(null);
 const citationCopied = ref(false);
 const isPrivateModalOpen = ref(false);
 const zenodoRecordInput = ref("");
@@ -431,8 +446,6 @@ let hoverTagId = null;
 let pinnedTagId = null;
 let hoverHandlersBound = false;
 let locationHandlersBound = false;
-let stapHandlersBound = false;
-let hoverShowTimer;
 let hoverHideTimer;
 let tagInfoMap = new Map();
 
@@ -501,11 +514,10 @@ const projectTaxaNames = (project) => {
     .filter(Boolean);
 };
 
+// Both "Family, Given" and "Given Family", so either order finds the person.
 const projectContributorNames = (project) =>
   (project.contributors || [])
-    .map(
-      (person) => person.title || [person.givenName, person.familyName].filter(Boolean).join(" "),
-    )
+    .flatMap((person) => [person.title, personDisplayName(person)])
     .filter(Boolean);
 
 const displayProjectTitle = (title) =>
@@ -520,28 +532,18 @@ const projectSearchText = (project) => {
   return `${title} ${taxa} ${contributors}`.toLowerCase();
 };
 
+// Species · number of tags · first author ("Wong et al."), for the project list.
 const projectSubtitle = (project) => {
   const taxa = projectTaxaNames(project);
-  const contributors = projectContributorNames(project);
-  const parts = [];
-  if (project.is_private) {
-    parts.push("Private");
-  }
-  if (taxa.length) {
-    const taxaPreview = taxa.slice(0, 2).join(" · ");
-    const suffix = taxa.length > 2 ? ` +${taxa.length - 2}` : "";
-    parts.push(`${taxaPreview}${suffix}`);
-  }
-  if (contributors.length) {
-    const peoplePreview = contributors.slice(0, 2).join(", ");
-    const suffix = contributors.length > 2 ? ` +${contributors.length - 2}` : "";
-    parts.push(`${peoplePreview}${suffix}`);
-  }
-  const keywords = normalizeKeywords(project.keywords);
-  if (keywords.length) {
-    parts.push(keywords.slice(0, 2).join(", "));
-  }
-  return parts.join(" • ");
+  const people = project.contributors || [];
+  const tagCount = Number(project.numberTags?.tags);
+  return [
+    taxa.length ? taxa.slice(0, 2).join(", ") + (taxa.length > 2 ? ` +${taxa.length - 2}` : "") : "",
+    tagCount > 0 ? `${tagCount} ${tagCount === 1 ? "tag" : "tags"}` : "",
+    people.length ? personFamilyName(people[0]) + (people.length > 1 ? " et al." : "") : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 };
 
 const filteredProjects = computed(() => {
@@ -751,8 +753,7 @@ const licenseItems = computed(() =>
 
 const contributors = computed(() =>
   (selectedProject.value?.contributors || []).map((person) => ({
-    name:
-      person.title || [person.givenName, person.familyName].filter(Boolean).join(" ") || "Unknown",
+    name: personDisplayName(person) || "Unknown",
     orcid: person.path || "",
     role: person.roles || "",
     organization: person.organization || "",
@@ -1043,25 +1044,36 @@ const clearTagHover = ({ force = false } = {}) => {
   }
 };
 
-const scheduleHoverShow = (tagId, lngLat, { lock = false } = {}) => {
-  if (hoverHideTimer) {
-    clearTimeout(hoverHideTimer);
-    hoverHideTimer = null;
+// Width of the open map legend (0 when closed or hidden on small screens), at most 40%
+// of the map so the tracks keep enough room.
+const legendWidth = () => {
+  const el = mapLegend.value?.isOpen ? mapLegend.value.$el : null;
+  return Math.min(el?.offsetWidth ?? 0, mapInstance.getContainer().clientWidth * 0.4);
+};
+
+// Pixels around the pointer that still count as on a track or stopover circle.
+const TAG_HIT_PADDING = 6;
+
+// Bird (tagId) under the pointer: stopover circles first (drawn on top), then the
+// invisible wide copy of the tracks, so thin lines are easy to hover and click.
+const tagIdAtPoint = (point) => {
+  const layers = ["project-staps-circles", "project-paths-hit"].filter((id) =>
+    mapInstance.getLayer(id),
+  );
+  if (!layers.length) {
+    return null;
   }
-  if (hoverShowTimer) {
-    clearTimeout(hoverShowTimer);
-  }
-  hoverShowTimer = setTimeout(() => {
-    setTagHover(tagId, lngLat, { lock });
-    hoverShowTimer = null;
-  }, 80);
+  const hit = mapInstance.queryRenderedFeatures(
+    [
+      [point.x - TAG_HIT_PADDING, point.y - TAG_HIT_PADDING],
+      [point.x + TAG_HIT_PADDING, point.y + TAG_HIT_PADDING],
+    ],
+    { layers },
+  );
+  return hit[0]?.properties?.tagId ?? null;
 };
 
 const scheduleHoverHide = () => {
-  if (hoverShowTimer) {
-    clearTimeout(hoverShowTimer);
-    hoverShowTimer = null;
-  }
   if (hoverHideTimer) {
     clearTimeout(hoverHideTimer);
   }
@@ -1140,6 +1152,16 @@ const updateMap = ({ fit = true } = {}) => {
         "line-opacity": 0.6,
       },
     });
+    // Invisible wide copy of the tracks, only used to find the track under the pointer.
+    mapInstance.addLayer({
+      id: "project-paths-hit",
+      type: "line",
+      source: "project-paths",
+      paint: {
+        "line-color": "rgba(0,0,0,0)",
+        "line-width": 16,
+      },
+    });
     mapInstance.addLayer({
       id: "project-paths-highlight",
       type: "line",
@@ -1160,43 +1182,46 @@ const updateMap = ({ fit = true } = {}) => {
         [maxLon, maxLat],
       ],
       {
-        padding: 60,
+        // Keep the tracks clear of the open legend in the bottom-right corner.
+        padding: { top: 60, bottom: 60, left: 60, right: 60 + legendWidth() },
         duration: 800,
       },
     );
   }
 
-  if (!hoverHandlersBound && mapInstance.getLayer("project-paths-line")) {
+  // One map-wide set of handlers, so a stopover circle behaves exactly like its track.
+  if (!hoverHandlersBound) {
     hoverHandlersBound = true;
-    mapInstance.on("mouseenter", "project-paths-line", (event) => {
-      mapInstance.getCanvas().style.cursor = "pointer";
-      const tagId = event.features[0].properties?.tagId;
-      if (!pinnedTagId) {
-        scheduleHoverShow(tagId, event.lngLat);
+    mapInstance.on("mousemove", (event) => {
+      const tagId = tagIdAtPoint(event.point);
+      mapInstance.getCanvas().style.cursor = tagId ? "pointer" : "";
+      if (pinnedTagId) {
+        return;
       }
+      if (!tagId) {
+        if (hoverTagId) {
+          scheduleHoverHide();
+        }
+        return;
+      }
+      if (hoverHideTimer) {
+        clearTimeout(hoverHideTimer);
+        hoverHideTimer = null;
+      }
+      setTagHover(tagId, event.lngLat);
     });
 
-    mapInstance.on("mousemove", "project-paths-line", (event) => {
-      if (hoverTagId && hoverPopup && !pinnedTagId) {
-        hoverPopup.setLngLat(event.lngLat);
-      }
-    });
-
-    mapInstance.on("mouseleave", "project-paths-line", () => {
+    mapInstance.on("mouseout", () => {
       mapInstance.getCanvas().style.cursor = "";
       scheduleHoverHide();
     });
 
-    mapInstance.on("click", "project-paths-line", (event) => {
-      const tagId = event.features[0].properties?.tagId;
-      setTagHover(tagId, event.lngLat, { lock: true });
-    });
-
+    // A click pins the bird (its popup stays, with its link); a click elsewhere unpins.
     mapInstance.on("click", (event) => {
-      const hit = mapInstance.queryRenderedFeatures(event.point, {
-        layers: ["project-paths-line"],
-      });
-      if (!hit.length && pinnedTagId) {
+      const tagId = tagIdAtPoint(event.point);
+      if (tagId) {
+        setTagHover(tagId, event.lngLat, { lock: true });
+      } else if (pinnedTagId) {
         clearTagHover({ force: true });
       }
     });
@@ -1248,7 +1273,6 @@ const updateMap = ({ fit = true } = {}) => {
   if (!locationHandlersBound && mapInstance.getLayer("project-locations-circles")) {
     locationHandlersBound = true;
     mapInstance.on("mousemove", "project-locations-circles", (event) => {
-      mapInstance.getCanvas().style.cursor = "pointer";
       const name = event.features[0].properties?.name || "Location";
       if (!locationPopup) {
         locationPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
@@ -1260,38 +1284,10 @@ const updateMap = ({ fit = true } = {}) => {
     });
 
     mapInstance.on("mouseleave", "project-locations-circles", () => {
-      mapInstance.getCanvas().style.cursor = "";
       if (locationPopup) {
         locationPopup.remove();
         locationPopup = null;
       }
-    });
-  }
-
-  if (!stapHandlersBound && mapInstance.getLayer("project-staps-circles")) {
-    stapHandlersBound = true;
-    mapInstance.on("mouseenter", "project-staps-circles", (event) => {
-      mapInstance.getCanvas().style.cursor = "pointer";
-      const tagId = event.features[0].properties?.tagId;
-      if (!pinnedTagId) {
-        scheduleHoverShow(tagId, event.lngLat);
-      }
-    });
-
-    mapInstance.on("mousemove", "project-staps-circles", (event) => {
-      if (hoverTagId && hoverPopup && !pinnedTagId) {
-        hoverPopup.setLngLat(event.lngLat);
-      }
-    });
-
-    mapInstance.on("mouseleave", "project-staps-circles", () => {
-      mapInstance.getCanvas().style.cursor = "";
-      scheduleHoverHide();
-    });
-
-    mapInstance.on("click", "project-staps-circles", (event) => {
-      const tagId = event.features[0].properties?.tagId;
-      setTagHover(tagId, event.lngLat, { lock: true });
     });
   }
 
@@ -1438,10 +1434,6 @@ onBeforeUnmount(() => {
   }
   if (locationPopup) {
     locationPopup.remove();
-  }
-  if (hoverShowTimer) {
-    clearTimeout(hoverShowTimer);
-    hoverShowTimer = null;
   }
   if (hoverHideTimer) {
     clearTimeout(hoverHideTimer);
