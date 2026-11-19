@@ -524,6 +524,9 @@ let pressureLines = [];
 // few km need more to be visible.
 const TERRAIN_EXAGGERATION = 6;
 const BIRD_HEIGHT_EXAGGERATION = 8;
+// Capping the elevation tiles at zoom 5 smooths the exaggerated relief when zoomed in,
+// while valley floors stay close to their real height (z4 already fills them by ~300 m).
+const TERRAIN_DEM_MAXZOOM = 5;
 let pressureData;
 let resizeHandler;
 let mapReady = false;
@@ -2698,9 +2701,9 @@ onMounted(async () => {
     }
     mapInstance.addSource("mapbox-dem", {
       type: "raster-dem",
-      url: "mapbox://mapbox.terrain-rgb",
+      url: "mapbox://mapbox.mapbox-terrain-dem-v1",
       tileSize: 512,
-      maxzoom: 14,
+      maxzoom: TERRAIN_DEM_MAXZOOM,
     });
     pressureMarkerReady = true;
     bindCameraHandlers();
