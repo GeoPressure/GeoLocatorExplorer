@@ -17,21 +17,25 @@
               <span>Add private project</span>
             </button>
           </div>
+          <!-- Headless UI owns open/close: clicking the field opens the full list with
+               the current project selected, typing filters it, Escape or clicking
+               elsewhere closes it and restores the project name. -->
           <Combobox
             v-model="selectedId"
             as="div"
             class="relative mt-2"
+            v-slot="{ open }"
             @update:modelValue="updateProject"
           >
             <div class="relative">
               <ComboboxInput
                 class="field pr-10"
-                :displayValue="comboboxDisplayValue"
+                :displayValue="projectDisplayValue"
                 @change="searchQuery = $event.target.value"
-                @input="searchQuery = $event.target.value"
-                @focus="openProjectPicker"
-                @click="openProjectPicker"
-                @keydown.escape="isSearching = false"
+                @focus="$event.target.select()"
+                @click="openOptions(open, projectMenuButton, $event)"
+                @keydown.enter="pickFirstMatch"
+                @blur.capture="$event.stopImmediatePropagation()"
                 autocomplete="off"
                 autocorrect="off"
                 autocapitalize="off"
@@ -39,8 +43,10 @@
                 placeholder="Search title, species, author, keyword"
               />
               <ComboboxButton
+                ref="projectMenuButton"
                 class="absolute inset-y-0 right-0 flex items-center pr-3 text-fg/50"
-                @click="openProjectPicker"
+                aria-label="Show all projects"
+                @click="searchQuery = ''"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
                   <path
@@ -51,11 +57,7 @@
                 </svg>
               </ComboboxButton>
             </div>
-            <ComboboxOptions
-              static
-              v-show="isSearching"
-              class="menu z-10 max-h-80"
-            >
+            <ComboboxOptions class="menu z-10 max-h-80">
               <div v-if="!filteredProjects.length" class="px-3 py-2 text-xs text-fg/50">
                 No projects found
               </div>
@@ -297,11 +299,12 @@
 
           <div
             v-if="footerMeta.length"
-            class="flex whitespace-nowrap gap-3 overflow-x-auto text-[10px] uppercase tracking-[0.2em] text-fg/50"
+            class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-fg/50"
           >
+            <!-- Wraps between items instead of scrolling sideways in a narrow panel. -->
             <template v-for="(item, index) in footerMeta" :key="item.label">
-              <span v-if="index > 0">·</span>
-              <span>
+              <span v-if="index > 0" aria-hidden="true">·</span>
+              <span class="whitespace-nowrap">
                 <a
                   v-if="item.href"
                   :href="item.href"
@@ -405,7 +408,7 @@ const mapContainer = ref(null);
 const projects = ref([]);
 const selectedId = ref("");
 const searchQuery = ref("");
-const isSearching = ref(false);
+const projectMenuButton = ref(null);
 const citationCopied = ref(false);
 const isPrivateModalOpen = ref(false);
 const zenodoRecordInput = ref("");
@@ -485,8 +488,6 @@ const projectDisplayValue = (value) => {
   return displayProjectTitle(project?.title);
 };
 
-const comboboxDisplayValue = () =>
-  isSearching.value ? searchQuery.value : projectDisplayValue(selectedId.value);
 
 const projectTaxaNames = (project) => {
   const taxa = project.taxonomic || [];
@@ -926,9 +927,24 @@ const removePrivateRecord = async (id) => {
   );
 };
 
-const openProjectPicker = () => {
-  isSearching.value = true;
-  searchQuery.value = "";
+// Open the full list when the field is clicked while closed (Headless UI only opens
+// on typing or on its button, so the click is passed to the button), with the current
+// name selected so typing replaces it. Enter with no highlighted option (it was
+// filtered away) picks the first match. Clicking elsewhere only closes the list:
+// Headless UI would pick the highlighted option on blur, so the input's capture-phase
+// blur listener stops its handler; its outside-click handling still closes the list.
+const openOptions = (open, button, event) => {
+  if (!open) {
+    searchQuery.value = "";
+    button?.$el?.click();
+    event?.target?.select();
+  }
+};
+
+const pickFirstMatch = (event) => {
+  if (!event.target.getAttribute("aria-activedescendant") && filteredProjects.value.length) {
+    updateProject(projectKey(filteredProjects.value[0]));
+  }
 };
 
 const resolveProjectId = (value) => {
@@ -1348,7 +1364,6 @@ const updateProject = async (rawId) => {
   router.replace({ name: "project", params: { conceptId: projectSlug(resolvedId) } });
   await updateProjectData();
   searchQuery.value = "";
-  isSearching.value = false;
 };
 
 watch(

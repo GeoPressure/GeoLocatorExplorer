@@ -5,18 +5,21 @@
     >
       <div class="panel h-full relative z-20 overflow-visible rounded-xl p-4 sm:overflow-y-auto">
         <div class="grid gap-4">
-          <div ref="tagSearchContainer">
-            <Combobox v-model="selectedTag" as="div" class="relative">
+          <div>
+            <!-- Headless UI owns open/close: clicking the field opens the full list with
+                 the current tag selected, typing filters it, Escape or clicking elsewhere
+                 closes it and restores the tag name. -->
+            <Combobox v-model="selectedTag" as="div" class="relative" v-slot="{ open }">
               <div class="relative">
                 <div class="relative">
                   <ComboboxInput
                     class="field pr-10"
-                    :displayValue="comboboxDisplayValue"
+                    :displayValue="tagDisplayValue"
                     @change="searchQuery = $event.target.value"
-                    @input="searchQuery = $event.target.value"
-                    @focus="openTagOptions"
-                    @click="openTagOptions"
-                    @keydown.escape="isSearching = false"
+                    @focus="$event.target.select()"
+                    @click="openOptions(open, tagMenuButton, $event)"
+                    @keydown.enter="pickFirstMatch"
+                    @blur.capture="$event.stopImmediatePropagation()"
                     autocomplete="off"
                     autocorrect="off"
                     autocapitalize="off"
@@ -26,7 +29,8 @@
                   <ComboboxButton
                     class="absolute inset-y-0 right-0 flex items-center pr-3 text-fg/50"
                     ref="tagMenuButton"
-                    @click="openTagOptions"
+                    aria-label="Show all tags"
+                    @click="searchQuery = ''"
                   >
                     <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
                       <path
@@ -38,11 +42,7 @@
                   </ComboboxButton>
                 </div>
               </div>
-              <ComboboxOptions
-                static
-                v-show="isSearching"
-                class="menu z-50 max-h-72"
-              >
+              <ComboboxOptions class="menu z-50 max-h-72">
                 <div v-if="!filteredTags.length" class="px-3 py-2 text-xs text-fg/50">
                   No tags found
                 </div>
@@ -491,11 +491,9 @@ const metrics = ref([]);
 const selectedMetric = ref("");
 const tagData = ref(null);
 const searchQuery = ref("");
-const isSearching = ref(false);
 const isMobile = ref(false);
 const isPanelCollapsed = ref(false);
 const tagMenuButton = ref(null);
-const tagSearchContainer = ref(null);
 const timeTimeline = ref([]);
 const distanceTimeline = ref([]);
 const hasPressurePath = ref(false);
@@ -529,7 +527,6 @@ let resizeObserver;
 let playRafId;
 let lastPlayTimestamp = null;
 let playAccumulator = 0;
-let outsideClickHandler;
 let privateDatapackagesChangedHandler;
 let pressureMarkerReady = false;
 const PLAYBACK_DAYS_PER_SEC = 5;
@@ -996,8 +993,6 @@ const displayProjectTitle = (title) =>
     .replace(/^GeoLocator Data package:\s*/i, "")
     .trim();
 
-const comboboxDisplayValue = () =>
-  isSearching.value ? searchQuery.value : tagDisplayValue(selectedTag.value);
 
 const tagSearchText = (tag) => {
   const fields = [
@@ -1011,11 +1006,23 @@ const tagSearchText = (tag) => {
   return fields.filter(Boolean).join(" ").toLowerCase();
 };
 
-const openTagOptions = () => {
-  isSearching.value = true;
-  searchQuery.value = "";
-  if (tagMenuButton.value && typeof tagMenuButton.value.click === "function") {
-    tagMenuButton.value.click();
+// Open the full list when the field is clicked while closed (Headless UI only opens
+// on typing or on its button, so the click is passed to the button), with the current
+// name selected so typing replaces it. Enter with no highlighted option (it was
+// filtered away) picks the first match. Clicking elsewhere only closes the list:
+// Headless UI would pick the highlighted option on blur, so the input's capture-phase
+// blur listener stops its handler; its outside-click handling still closes the list.
+const openOptions = (open, button, event) => {
+  if (!open) {
+    searchQuery.value = "";
+    button?.$el?.click();
+    event?.target?.select();
+  }
+};
+
+const pickFirstMatch = (event) => {
+  if (!event.target.getAttribute("aria-activedescendant") && filteredTags.value.length) {
+    selectedTag.value = filteredTags.value[0].tag_id;
   }
 };
 
@@ -2571,7 +2578,6 @@ watch(selectedTag, (value) => {
     router.replace({ name: "tag", params: { tagId: value } });
     fetchTagData(value);
     searchQuery.value = "";
-    isSearching.value = false;
   }
 });
 
@@ -2713,19 +2719,6 @@ onMounted(async () => {
       resizeObserver.observe(plotWrapper.value);
     }
   }
-
-  outsideClickHandler = (event) => {
-    if (!isSearching.value) {
-      return;
-    }
-    const container = tagSearchContainer.value;
-    if (!container || container.contains(event.target)) {
-      return;
-    }
-    isSearching.value = false;
-  };
-  document.addEventListener("mousedown", outsideClickHandler);
-  document.addEventListener("touchstart", outsideClickHandler, { passive: true });
 });
 
 onBeforeUnmount(() => {
@@ -2735,11 +2728,6 @@ onBeforeUnmount(() => {
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
-  }
-  if (outsideClickHandler) {
-    document.removeEventListener("mousedown", outsideClickHandler);
-    document.removeEventListener("touchstart", outsideClickHandler);
-    outsideClickHandler = null;
   }
   if (privateDatapackagesChangedHandler) {
     window.removeEventListener(
