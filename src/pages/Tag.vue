@@ -1,16 +1,16 @@
 <template>
-  <section class="min-h-screen w-full bg-[color:var(--ink)] px-6 pb-6 pt-24">
+  <section class="min-h-screen w-full bg-[color:var(--ink)] px-3 pb-3 pt-[4.5rem]">
     <div
-      class="grid w-full grid-cols-1 gap-6 lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[minmax(360px,520px)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] xl:grid-rows-[minmax(50vh,1fr)_minmax(0,1fr)]"
+      class="grid w-full grid-cols-1 gap-3 lg:h-[max(660px,calc(100vh-5.25rem))] lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_clamp(280px,42%,520px)]"
     >
-      <div class="panel h-full relative z-20 overflow-visible sm:overflow-y-auto">
+      <div class="panel h-full relative z-20 overflow-visible rounded-xl p-4 sm:overflow-y-auto">
         <div class="grid gap-4">
           <div ref="tagSearchContainer">
             <Combobox v-model="selectedTag" as="div" class="relative">
               <div class="relative">
                 <div class="relative">
                   <ComboboxInput
-                    class="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 pr-10 text-sm text-white placeholder:text-white/40"
+                    class="field pr-10"
                     :displayValue="comboboxDisplayValue"
                     @change="searchQuery = $event.target.value"
                     @input="searchQuery = $event.target.value"
@@ -24,7 +24,7 @@
                     placeholder="Search tag, species, project"
                   />
                   <ComboboxButton
-                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-white/50"
+                    class="absolute inset-y-0 right-0 flex items-center pr-3 text-fg/50"
                     ref="tagMenuButton"
                     @click="openTagOptions"
                   >
@@ -41,9 +41,9 @@
               <ComboboxOptions
                 static
                 v-show="isSearching"
-                class="absolute z-50 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-white/10 bg-[color:var(--slate)] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
+                class="menu z-50 max-h-72"
               >
-                <div v-if="!filteredTags.length" class="px-3 py-2 text-xs text-white/50">
+                <div v-if="!filteredTags.length" class="px-3 py-2 text-xs text-fg/50">
                   No tags found
                 </div>
                 <ComboboxOption
@@ -55,22 +55,22 @@
                   <div
                     :class="[
                       'rounded-lg px-3 py-2 text-left transition',
-                      active ? 'bg-white/10' : '',
-                      selected ? 'border border-white/20' : 'border border-transparent',
+                      active ? 'bg-fg/10' : '',
+                      selected ? 'border border-fg/20' : 'border border-transparent',
                     ]"
                   >
-                    <p class="text-sm font-medium text-white">
+                    <p class="text-sm font-medium text-fg">
                       {{ tag.tag_id }} · {{ tag.common_name || tag.scientific_name || "Unknown" }}
                       <span
                         v-if="tag.is_private"
-                        class="ml-2 rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                        class="badge-private"
                       >
                         Private
                       </span>
                     </p>
                     <p
                       v-if="tag.project_title"
-                      class="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/50"
+                      class="mt-1 text-[11px] uppercase tracking-[0.2em] text-fg/50"
                     >
                       {{ displayProjectTitle(tag.project_title) }}
                     </p>
@@ -81,10 +81,10 @@
           </div>
 
           <div class="flex items-center justify-between gap-3 sm:hidden">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Details</p>
+            <p class="eyebrow">Details</p>
             <button
               type="button"
-              class="inline-flex items-center rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60 transition hover:border-white/30 hover:text-white"
+              class="button-ghost"
               @click="togglePanel"
               :aria-expanded="!isPanelCollapsed"
             >
@@ -110,11 +110,11 @@
           </div>
 
           <div v-show="!isPanelCollapsed || !isMobile" class="min-w-0 space-y-4">
-            <div v-if="tagDetails" class="space-y-3 text-sm text-white/70 break-words">
+            <div v-if="tagDetails" class="space-y-3 text-sm text-fg/70 break-words">
               <div>
-                <p class="text-white/90 break-words">
+                <p class="text-fg/90 break-words">
                   <span class="font-medium">{{ speciesInfo.commonName || "Unknown species" }}</span>
-                  <span v-if="speciesInfo.scientificName" class="ml-2 italic text-white/60">
+                  <span v-if="speciesInfo.scientificName" class="ml-2 italic text-fg/60">
                     {{ speciesInfo.scientificName }}
                   </span>
                   <img
@@ -126,13 +126,13 @@
                     class="ml-2 inline-block h-3.5 w-3.5 align-[-2px] object-contain"
                   />
                 </p>
-                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-fg/60">
                   <a
                     v-if="speciesInfo.ebirdLink"
                     :href="speciesInfo.ebirdLink"
                     target="_blank"
                     rel="noreferrer"
-                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
+                    class="chip"
                   >
                     eBird
                   </a>
@@ -141,7 +141,7 @@
                     :href="speciesInfo.statusTrendsLink"
                     target="_blank"
                     rel="noreferrer"
-                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
+                    class="chip"
                   >
                     Trends
                   </a>
@@ -150,7 +150,7 @@
                     :href="speciesInfo.birdlifeFactsheetLink"
                     target="_blank"
                     rel="noreferrer"
-                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
+                    class="chip"
                   >
                     BirdLife
                   </a>
@@ -159,68 +159,79 @@
                     :href="speciesInfo.birdsOfTheWorldLink"
                     target="_blank"
                     rel="noreferrer"
-                    class="underline decoration-dotted decoration-white/40 underline-offset-4 transition hover:text-white"
+                    class="chip"
                   >
                     Birds of the World
                   </a>
                   <span
                     v-if="speciesInfo.status"
-                    class="rounded-full border border-white/15 px-2 py-0.5"
+                    class="chip"
                   >
                     Status: {{ speciesInfo.status }}
                   </span>
                   <span
                     v-if="speciesInfo.trend"
-                    class="rounded-full border border-white/15 px-2 py-0.5"
+                    class="chip"
                   >
                     Trend: {{ speciesInfo.trend }}
                   </span>
                 </div>
               </div>
-              <p class="text-sm text-white/70 break-words">
-                <span class="text-white/50">Project:</span>
-                <RouterLink
-                  v-if="tagDetails?.project_id"
-                  :to="`/project/${projectSlug(tagDetails.project_id)}`"
-                  class="ml-2 text-[color:var(--teal)] hover:text-white break-words"
-                >
-                  {{ displayProjectTitle(tagDetails.project_title) || "—" }}
-                  <span v-if="tagDetails.is_private" class="ml-2 text-[10px] uppercase tracking-[0.18em] text-[color:var(--teal)]">
-                    Private
-                  </span>
-                </RouterLink>
-                <span v-else class="ml-2">—</span>
-              </p>
-              <div class="grid gap-x-6 gap-y-1 text-sm text-white/70 sm:grid-cols-2">
-                <p><span class="text-white/50">Ring:</span> {{ tagDetails.ring_number || "—" }}</p>
-                <p><span class="text-white/50">Sex:</span> {{ sexSymbol || "—" }}</p>
-                <p>
-                  <span class="text-white/50">Age class:</span> {{ tagDetails.age_class || "—" }}
-                </p>
-                <p>
-                  <span class="text-white/50">Wing length:</span>
-                  {{ tagDetails.wing_length ? `${tagDetails.wing_length} mm` : "—" }}
-                </p>
-                <p class="sm:col-span-2">
-                  <span class="text-white/50">Model:</span>
-                  {{
-                    tagDetails.model
-                      ? tagDetails.firmware
-                        ? `${tagDetails.model} (${tagDetails.firmware})`
-                        : tagDetails.model
-                      : "—"
-                  }}
-                </p>
-              </div>
+              <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm text-fg/80">
+                <div class="col-span-2 min-w-0">
+                  <dt class="eyebrow">Project</dt>
+                  <dd class="mt-1 break-words">
+                    <RouterLink
+                      v-if="tagDetails?.project_id"
+                      :to="`/project/${projectSlug(tagDetails.project_id)}`"
+                      class="link"
+                    >
+                      {{ displayProjectTitle(tagDetails.project_title) || "—" }}
+                    </RouterLink>
+                    <span v-else>—</span>
+                    <span v-if="tagDetails.is_private" class="badge-private">Private</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt class="eyebrow">Ring</dt>
+                  <dd class="mt-1">{{ tagDetails.ring_number || "—" }}</dd>
+                </div>
+                <div>
+                  <dt class="eyebrow">Sex</dt>
+                  <dd class="mt-1">{{ sexSymbol || "—" }}</dd>
+                </div>
+                <div>
+                  <dt class="eyebrow">Age class</dt>
+                  <dd class="mt-1">{{ tagDetails.age_class || "—" }}</dd>
+                </div>
+                <div>
+                  <dt class="eyebrow">Wing length</dt>
+                  <dd class="mt-1">
+                    {{ tagDetails.wing_length ? `${tagDetails.wing_length} mm` : "—" }}
+                  </dd>
+                </div>
+                <div class="col-span-2">
+                  <dt class="eyebrow">Model</dt>
+                  <dd class="mt-1 break-words">
+                    {{
+                      tagDetails.model
+                        ? tagDetails.firmware
+                          ? `${tagDetails.model} (${tagDetails.firmware})`
+                          : tagDetails.model
+                        : "—"
+                    }}
+                  </dd>
+                </div>
+              </dl>
             </div>
             <div v-if="observations.length" class="space-y-2">
-              <p class="text-xs uppercase tracking-[0.2em] text-white/60">Observations</p>
+              <p class="eyebrow">Observations</p>
               <div
-                class="w-full max-w-full overflow-hidden rounded-xl border border-white/10 bg-black/30"
+                class="card w-full max-w-full overflow-hidden"
               >
-                <table class="w-full max-w-full table-auto text-left text-xs text-white/70">
+                <table class="w-full max-w-full table-auto text-left text-xs text-fg/70">
                   <thead
-                    class="sticky top-0 bg-[color:var(--slate)] text-[11px] uppercase tracking-[0.2em] text-white/60"
+                    class="sticky top-0 text-[10px] uppercase tracking-[0.2em] text-fg/50"
                   >
                     <tr>
                       <th class="px-3 py-2 font-medium">Date</th>
@@ -232,7 +243,7 @@
                     <tr
                       v-for="(obs, index) in observations"
                       :key="`${obs.datetime}-${index}`"
-                      class="border-t border-white/5 transition hover:bg-white/5"
+                      class="border-t border-fg/5 transition hover:bg-fg/5"
                       @mouseenter="setObservationHighlight(index)"
                       @mouseleave="clearObservationHighlight"
                     >
@@ -250,93 +261,21 @@
 
       <div
         ref="mapWrapper"
-        class="relative h-full min-h-[400px] overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--slate)] lg:min-h-0"
+        class="relative h-full min-h-[400px] overflow-hidden rounded-xl border border-fg/10 bg-[color:var(--slate)] lg:min-h-0"
       >
         <div ref="mapContainer" class="h-full w-full"></div>
         <div
-          class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"
-        ></div>
-        <div
-          class="absolute bottom-4 left-1/2 z-10 w-[92%] max-w-2xl -translate-x-1/2 rounded-2xl border border-white/10 bg-black/60 px-3 py-2 backdrop-blur"
-          @pointerdown.stop
-          @touchstart.stop
-          @touchmove.stop
-          @touchend.stop
+          v-if="isMapLoading"
+          class="pointer-events-none absolute inset-0 flex items-center justify-center"
+          aria-live="polite"
         >
-          <div class="grid gap-2">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  class="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/80 transition hover:text-white"
-                  :disabled="!canPlayPressure"
-                  @click="togglePressurePlayback"
-                  aria-label="Play or pause"
-                >
-                  <svg
-                    v-if="!isPressurePlaying"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    class="h-4 w-4 fill-current"
-                  >
-                    <path d="M8 5.5v13l11-6.5-11-6.5Z"></path>
-                  </svg>
-                  <svg v-else viewBox="0 0 24 24" aria-hidden="true" class="h-4 w-4 fill-current">
-                    <path d="M7 5h4v14H7zm6 0h4v14h-4z"></path>
-                  </svg>
-                </button>
-                <select
-                  v-model="selectedSpeed"
-                  class="h-9 w-20 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/80"
-                >
-                  <option v-for="speed in SPEED_PRESETS" :key="speed.id" :value="speed.id">
-                    {{ speed.label }}
-                  </option>
-                </select>
-              </div>
-              <div class="flex items-center gap-2">
-                <div
-                  class="flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1 text-[10px] uppercase tracking-[0.18em] text-white/60"
-                >
-                  <button
-                    type="button"
-                    class="rounded-full px-3 py-1.5 transition [touch-action:manipulation]"
-                    :class="sliderMode === 'time' ? 'bg-white/10 text-white' : ''"
-                    @click="sliderMode = 'time'"
-                  >
-                    Time
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-full px-3 py-1.5 transition [touch-action:manipulation]"
-                    :class="sliderMode === 'distance' ? 'bg-white/10 text-white' : ''"
-                    @click="sliderMode = 'distance'"
-                  >
-                    Distance
-                  </button>
-                </div>
-                <div
-                  class="min-w-[88px] text-xs uppercase tracking-[0.2em] text-white/70 tabular-nums text-right"
-                >
-                  {{ currentPressureLabel }}
-                </div>
-              </div>
-            </div>
-            <input
-              class="pressure-slider w-full cursor-pointer appearance-none [touch-action:pan-x]"
-              type="range"
-              :min="pressureSliderMin"
-              :max="pressureSliderMax"
-              :step="pressureSliderStep"
-              :value="pressureSliderValue"
-              @input="onPressureSliderInput"
-              :disabled="!activeTimeline.length"
-            />
-          </div>
+          <p class="rounded-full border border-fg/10 bg-shade/60 px-4 py-2 text-xs uppercase tracking-[0.2em] text-fg/70 backdrop-blur">
+            Loading…
+          </p>
         </div>
         <label
           v-if="hasPressurePath"
-          class="absolute left-4 top-4 z-10 inline-flex items-center gap-3 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-white/70 backdrop-blur cursor-pointer"
+          class="absolute left-4 top-4 z-10 inline-flex items-center gap-3 rounded-full border border-fg/10 bg-shade/60 px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-fg/70 backdrop-blur cursor-pointer"
           @pointerdown.stop
           @touchstart.stop
           @touchend.stop
@@ -348,7 +287,7 @@
             :class="
               isCameraFollowEnabled
                 ? 'border-[color:var(--teal)]/50 bg-[color:var(--teal)]/20'
-                : 'border-white/20 bg-white/10'
+                : 'border-fg/20 bg-fg/10'
             "
           >
             <span
@@ -356,29 +295,133 @@
               :class="
                 isCameraFollowEnabled
                   ? 'translate-x-4 bg-[color:var(--teal)]'
-                  : 'translate-x-0 bg-white/70'
+                  : 'translate-x-0 bg-fg/70'
               "
             ></span>
           </span>
         </label>
       </div>
 
-      <div class="panel h-full min-h-0 lg:col-span-2 flex flex-col p-0 sm:p-6">
+      <div class="panel h-full min-h-0 lg:col-span-2 flex flex-col gap-1 rounded-xl px-2 pb-1 pt-2 sm:px-3">
+        <!-- Timeline bar: playback and plot options. The plot below is the scrubber. -->
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <button
+            type="button"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-fg/15 bg-fg/5 text-fg/80 transition hover:text-fg disabled:opacity-40"
+            :disabled="!canPlayPressure"
+            @click="togglePressurePlayback"
+            :aria-label="isPressurePlaying ? 'Pause' : 'Play'"
+          >
+            <svg
+              v-if="!isPressurePlaying"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              class="h-4 w-4 fill-current"
+            >
+              <path d="M8 5.5v13l11-6.5-11-6.5Z"></path>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" aria-hidden="true" class="h-4 w-4 fill-current">
+              <path d="M7 5h4v14H7zm6 0h4v14h-4z"></path>
+            </svg>
+          </button>
+          <select
+            v-model="selectedSpeed"
+            aria-label="Playback speed"
+            class="timeline-select w-20 tabular-nums"
+          >
+            <option v-for="speed in SPEED_PRESETS" :key="speed.id" :value="speed.id">
+              {{ speed.label }}
+            </option>
+          </select>
+          <div
+            class="flex items-center rounded-full border border-fg/15 bg-fg/5 p-0.5 text-[10px] uppercase tracking-[0.2em] text-fg/60"
+            role="group"
+            aria-label="Plot against"
+          >
+            <button
+              type="button"
+              class="rounded-full px-3 py-1.5 transition [touch-action:manipulation]"
+              :class="sliderMode === 'time' ? 'bg-fg/10 text-fg' : ''"
+              :aria-pressed="sliderMode === 'time'"
+              @click="sliderMode = 'time'"
+            >
+              Time
+            </button>
+            <button
+              type="button"
+              class="rounded-full px-3 py-1.5 transition [touch-action:manipulation]"
+              :class="sliderMode === 'distance' ? 'bg-fg/10 text-fg' : ''"
+              :aria-pressed="sliderMode === 'distance'"
+              @click="sliderMode = 'distance'"
+            >
+              Distance
+            </button>
+          </div>
+          <select
+            v-if="metrics.length > 1"
+            v-model="selectedMetric"
+            aria-label="Plotted variable"
+            class="timeline-select"
+          >
+            <option v-for="metric in metrics" :key="metric" :value="metric">
+              {{ formatMetricLabel(metric) }}
+            </option>
+          </select>
+          <span v-else-if="metrics.length" class="text-xs text-fg/70">
+            {{ formatMetricLabel(metrics[0]) }}
+          </span>
+          <span
+            v-if="showNightShading"
+            class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] text-fg/50"
+          >
+            <span class="h-3 w-3 rounded-sm" :style="{ background: nightSwatch }"></span>
+            Night
+          </span>
+          <span
+            class="ml-auto text-xs uppercase tracking-[0.2em] text-fg/70 tabular-nums"
+            aria-live="off"
+          >
+            {{ currentPressureLabel }}
+          </span>
+        </div>
+        <input
+          v-if="!hasPressurePath"
+          class="pressure-slider w-full cursor-pointer appearance-none [touch-action:pan-x]"
+          type="range"
+          aria-label="Position along the track"
+          :min="pressureSliderMin"
+          :max="pressureSliderMax"
+          :step="pressureSliderStep"
+          :value="pressureSliderValue"
+          @input="onPressureSliderInput"
+          :disabled="!activeTimeline.length"
+        />
         <div
-          class="plotly-container relative flex-1 min-h-[220px] sm:min-h-[280px] lg:min-h-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 p-2"
+          ref="plotWrapper"
+          class="plotly-container relative flex-1 min-h-[220px] sm:min-h-[260px] lg:min-h-0 overflow-hidden"
         >
           <div
             v-if="hasPressurePath"
             ref="plotContainer"
-            class="h-full w-full min-h-0 overflow-hidden"
+            class="h-full w-full min-h-0 overflow-hidden rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)]"
+            tabindex="0"
+            role="slider"
+            aria-label="Position along the track. Click the plot or use the arrow keys to move; space to play or pause."
+            :aria-valuemin="0"
+            :aria-valuemax="maxPressureIndex"
+            :aria-valuenow="currentPressureIndex"
+            :aria-valuetext="currentPressureLabel"
+            @keydown="onPlotKeydown"
           ></div>
           <div
             v-else
-            class="absolute inset-0 flex items-center justify-center bg-black/60 text-center"
+            class="absolute inset-0 flex items-center justify-center bg-shade/60 text-center"
           >
-            <div class="rounded-2xl border border-white/10 bg-black/50 px-6 py-4">
-              <p class="text-xs uppercase tracking-[0.3em] text-white/50">Pressurepath Data</p>
-              <p class="mt-2 font-display text-lg text-white">Not available for this tag</p>
+            <div class="rounded-2xl border border-fg/10 bg-shade/50 px-6 py-4" aria-live="polite">
+              <p class="eyebrow">Pressurepath Data</p>
+              <p class="mt-2 font-display text-lg text-fg">
+                {{ isPressureLoading ? "Loading…" : "Not available for this tag" }}
+              </p>
             </div>
           </div>
         </div>
@@ -389,11 +432,12 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useTheme } from "../lib/theme";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
-import Plotly from "plotly.js-dist-min";
+import Plotly from "plotly.js-basic-dist-min";
 import { Threebox, THREE } from "threebox-plugin";
-import { loadTagData, loadTags } from "../lib/data";
+import { loadTagData, loadTagPressurePath, loadTags } from "../lib/data";
 import { PRIVATE_DATAPACKAGES_CHANGED_EVENT } from "../lib/privateDatapackageStore";
 import {
   buildDistanceTimeline,
@@ -401,6 +445,7 @@ import {
   buildHeadings,
   advanceAlongTimeline,
   buildMetrics,
+  buildNightIntervals,
   buildTimeTimeline,
   destinationPoint,
   findClosestIndex,
@@ -430,11 +475,16 @@ import {
   ComboboxOptions,
 } from "@headlessui/vue";
 
+const { theme } = useTheme();
 const route = useRoute();
 const router = useRouter();
 const mapWrapper = ref(null);
 const mapContainer = ref(null);
 const plotContainer = ref(null);
+const plotWrapper = ref(null);
+const isMapLoading = ref(true);
+// Night periods [startMs, endMs] for the shading on the plot.
+const nightIntervals = ref([]);
 const tags = ref([]);
 const selectedTag = ref("");
 const metrics = ref([]);
@@ -449,6 +499,7 @@ const tagSearchContainer = ref(null);
 const timeTimeline = ref([]);
 const distanceTimeline = ref([]);
 const hasPressurePath = ref(false);
+const isPressureLoading = ref(false);
 const currentPressureIndex = ref(0);
 const isPressurePlaying = ref(false);
 const isCameraFollowEnabled = ref(false);
@@ -515,6 +566,21 @@ const BIRDVIEW_MODEL_URL = new URL(
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
 const PRESSURE_CURSOR_COLOR = "#ef4444";
+// Plotly draws to SVG with explicit colors, so it gets its own palette per theme.
+const PLOT_COLORS = {
+  dark: {
+    text: "#f5f2e8",
+    grid: "rgba(255,255,255,0.08)",
+    baseline: "rgba(245, 242, 232, 0.35)",
+    night: "rgba(130, 150, 230, 0.16)",
+  },
+  light: {
+    text: "#141a24",
+    grid: "rgba(11,17,28,0.08)",
+    baseline: "rgba(20, 26, 36, 0.35)",
+    night: "rgba(40, 60, 150, 0.12)",
+  },
+};
 const PRESSURE_PATH_COLOR = "#f8fafc";
 let savedCameraState = null;
 let pressureMarker3d = null;
@@ -532,7 +598,9 @@ let followState = null;
 let followRafId = null;
 let lastAppliedCameraKey = "";
 const selectedSpeed = ref("1x");
-let plotHandlersBound = false;
+// The plot element is recreated whenever a tag without pressure data is shown, so the
+// Plotly event handlers are tracked per element.
+let plotHandlersBoundTo = null;
 let suppressPlotRelayout = false;
 let locationPopup;
 let locationHandlersBound = false;
@@ -709,6 +777,8 @@ const getInterpolatedPressurePoint = () => {
         : current.ms,
   };
 };
+
+const nightSwatch = computed(() => (PLOT_COLORS[theme.value] || PLOT_COLORS.dark).night);
 
 const currentPressureLabel = computed(() => {
   if (!currentPressurePoint.value) {
@@ -1623,269 +1693,249 @@ const unbindCameraHandlers = () => {
   cameraHandlersBound = false;
 };
 
+const cursorShape = () => {
+  const x = plotX(currentPressurePoint.value);
+  return {
+    type: "line",
+    xref: "x",
+    yref: "paper",
+    x0: x,
+    x1: x,
+    y0: 0,
+    y1: 1,
+    line: { color: PRESSURE_CURSOR_COLOR, width: 3 },
+  };
+};
+
 const updatePlotCursor = () => {
   if (!plotContainer.value || !plotContainer.value._fullLayout) {
     return;
   }
-  if (!currentPressurePoint.value) {
-    Plotly.relayout(plotContainer.value, { shapes: [] });
-    return;
-  }
   Plotly.relayout(plotContainer.value, {
-    shapes: [
-      {
-        type: "line",
-        xref: "x",
-        yref: "paper",
-        x0:
-          sliderMode.value === "distance"
-            ? currentPressurePoint.value.distanceKm
-            : currentPressurePoint.value.datetime,
-        x1:
-          sliderMode.value === "distance"
-            ? currentPressurePoint.value.distanceKm
-            : currentPressurePoint.value.datetime,
-        y0: 0,
-        y1: 1,
-        line: { color: PRESSURE_CURSOR_COLOR, width: 3 },
-      },
-    ],
+    shapes: currentPressurePoint.value ? [cursorShape()] : [],
   });
+};
+
+const plotX = (entry) => (sliderMode.value === "distance" ? entry.distanceKm : entry.datetime);
+
+// One filled trace for all nights, rather than layout shapes, which the cursor update
+// would redraw on every frame. It sits on the hidden 0–1 axis "y" so it spans the plot
+// height and is drawn under the data, which uses the overlaying axis "y2".
+// Time mode only: most geolocator species fly at night, so against distance nearly the
+// whole axis would be shaded.
+const showNightShading = computed(
+  () => sliderMode.value === "time" && hasPressurePath.value && nightIntervals.value.length > 0,
+);
+
+const buildNightTrace = (timeline, color) => {
+  if (!showNightShading.value || timeline.length < 2) {
+    return null;
+  }
+  const firstMs = timeline[0].ms;
+  const lastMs = timeline[timeline.length - 1].ms;
+  const x = [];
+  const y = [];
+  nightIntervals.value.forEach(([startMs, endMs]) => {
+    if (endMs < firstMs || startMs > lastMs) {
+      return;
+    }
+    const x0 = Math.max(startMs, firstMs);
+    const x1 = Math.min(endMs, lastMs);
+    if (x1 <= x0) {
+      return;
+    }
+    x.push(x0, x0, x1, x1, x0, null);
+    y.push(0, 1, 1, 0, 0, null);
+  });
+  if (!x.length) {
+    return null;
+  }
+  return {
+    x,
+    y,
+    type: "scatter",
+    mode: "lines",
+    fill: "toself",
+    fillcolor: color,
+    line: { width: 0 },
+    hoverinfo: "skip",
+    name: "Night",
+  };
 };
 
 const updatePlot = () => {
   if (!plotContainer.value || !pressureData) {
     return;
   }
-  const availableMetrics = metrics.value;
-  if (!availableMetrics.length) {
+  const plotColors = PLOT_COLORS[theme.value] || PLOT_COLORS.dark;
+  const metric = metrics.value.includes(selectedMetric.value)
+    ? selectedMetric.value
+    : metrics.value[0];
+  const timeline = activeTimeline.value;
+  if (!metric || !timeline.length) {
     Plotly.react(
       plotContainer.value,
       [],
-      { autosize: true },
+      { autosize: true, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)" },
       { displayModeBar: false, responsive: true },
     );
     return;
   }
-  if (!availableMetrics.includes(selectedMetric.value)) {
-    selectedMetric.value = availableMetrics[0];
-  }
 
+  const isDistance = sliderMode.value === "distance";
   const maxPoints = isMobile.value ? 6000 : 50000;
-  const step = Math.max(1, Math.ceil(activeTimeline.value.length / maxPoints));
-  const timeline = activeTimeline.value;
-  if (!timeline.length) {
-    return;
-  }
-  const xMin = sliderMode.value === "distance" ? timeline[0].distanceKm : timeline[0].datetime;
-  const xMax =
-    sliderMode.value === "distance"
-      ? timeline[timeline.length - 1].distanceKm
-      : timeline[timeline.length - 1].datetime;
-  const hasRange =
-    sliderMode.value === "distance"
-      ? Number.isFinite(Number(xMin)) && Number.isFinite(Number(xMax)) && xMin !== xMax
-      : Boolean(xMin) && Boolean(xMax) && xMin !== xMax;
-  const containerHeight = plotContainer.value.clientHeight || 0;
+  const step = Math.max(1, Math.ceil(timeline.length / maxPoints));
+  const xMin = plotX(timeline[0]);
+  const xMax = plotX(timeline[timeline.length - 1]);
+  const hasRange = isDistance
+    ? Number.isFinite(Number(xMin)) && Number.isFinite(Number(xMax)) && xMin !== xMax
+    : Boolean(xMin) && Boolean(xMax) && xMin !== xMax;
+  const unit = metric === "altitude" ? " m" : metric === "surface_pressure" ? " hPa" : "";
   const traces = [];
-  const traceGroups = new Map();
 
-  const showStapLines = sliderMode.value !== "distance";
-  availableMetrics.forEach((metric) => {
-    const baseX = [];
-    const baseY = [];
-    const perStap = new Map();
-    for (let i = 0; i < timeline.length; i += step) {
-      const entry = timeline[i];
-      const v = entry.metrics?.[metric];
-      if (v == null) {
-        continue;
-      }
-      const numeric = Number(v);
-      if (!Number.isFinite(numeric)) {
-        continue;
-      }
-      const xVal = sliderMode.value === "distance" ? entry.distanceKm : entry.datetime;
-      baseX.push(xVal);
-      baseY.push(numeric);
+  const nightTrace = buildNightTrace(timeline, plotColors.night);
+  if (nightTrace) {
+    traces.push(nightTrace);
+  }
 
-      if (showStapLines) {
-        const stapNumeric = Number(entry.stapId);
-        if (!Number.isFinite(stapNumeric) || !Number.isInteger(stapNumeric)) {
-          continue;
-        }
-        const stapKey = String(entry.stapId);
-        const color = stapColorMap.get(stapKey);
-        if (!color) {
-          continue;
-        }
-        const series = perStap.get(stapKey) || { x: [], y: [] };
-        series.x.push(xVal);
-        series.y.push(numeric);
-        perStap.set(stapKey, series);
-      }
+  // customdata holds the timeline index, so a click on the plot can seek to it.
+  const baseX = [];
+  const baseY = [];
+  const baseIndex = [];
+  const perStap = new Map();
+  for (let i = 0; i < timeline.length; i += step) {
+    const entry = timeline[i];
+    const numeric = Number(entry.metrics?.[metric]);
+    if (entry.metrics?.[metric] == null || !Number.isFinite(numeric)) {
+      continue;
     }
-
-    const start = traces.length;
-    traces.push({
-      x: baseX,
-      y: baseY,
-      type: "scatter",
-      mode: "lines",
-      visible: metric === selectedMetric.value,
-      line: { color: "rgba(245, 242, 232, 0.35)", width: 1 },
-      name: `${formatMetricLabel(metric)} (all)`,
-    });
-
-    if (showStapLines) {
-      Array.from(perStap.entries())
-        .sort((a, b) => Number(a[0]) - Number(b[0]))
-        .forEach(([stapId, series]) => {
-          traces.push({
-            x: series.x,
-            y: series.y,
-            type: "scatter",
-            mode: "lines",
-            visible: metric === selectedMetric.value,
-            line: { color: stapColorMap.get(stapId), width: 2 },
-            name: `Stap ${stapId}`,
-          });
-        });
+    const xVal = plotX(entry);
+    baseX.push(xVal);
+    baseY.push(numeric);
+    baseIndex.push(i);
+    if (isDistance) {
+      continue;
     }
-
-    if (sliderMode.value === "distance") {
-      const markerX = [];
-      const markerY = [];
-      const markerColor = [];
-      const markerSize = [];
-      const targetList = activeTimeline.value;
-      stapList.forEach((stap) => {
-        const idx = findClosestIndex(targetList, stap.startTime, "ms");
-        const entry = targetList[idx];
-        const v = entry?.metrics?.[metric];
-        const numeric = Number(v);
-        if (!Number.isFinite(numeric)) {
-          return;
-        }
-        const xVal = entry.distanceKm;
-        markerX.push(xVal);
-        markerY.push(numeric);
-        markerColor.push(stapColorMap.get(stap.stapId) || "#f8fafc");
-        const size = Math.min(14, 4 + Math.sqrt(Math.max(stap.duration, 0)) * 1.2);
-        markerSize.push(size);
-      });
-      if (markerX.length) {
-        traces.push({
-          x: markerX,
-          y: markerY,
-          type: "scatter",
-          mode: "markers",
-          visible: metric === selectedMetric.value,
-          marker: {
-            color: markerColor,
-            size: markerSize,
-            line: { color: "rgba(0,0,0,0.4)", width: 1 },
-            opacity: 0.9,
-          },
-          name: `${formatMetricLabel(metric)} staps`,
-        });
-      }
+    const stapNumeric = Number(entry.stapId);
+    if (!Number.isFinite(stapNumeric) || !Number.isInteger(stapNumeric)) {
+      continue;
     }
+    const stapKey = String(entry.stapId);
+    if (!stapColorMap.has(stapKey)) {
+      continue;
+    }
+    const series = perStap.get(stapKey) || { x: [], y: [], index: [] };
+    series.x.push(xVal);
+    series.y.push(numeric);
+    series.index.push(i);
+    perStap.set(stapKey, series);
+  }
 
-    traceGroups.set(metric, { start, end: traces.length });
+  const hovertemplate = `%{y:.0f}${unit}<extra></extra>`;
+  traces.push({
+    x: baseX,
+    y: baseY,
+    customdata: baseIndex,
+    yaxis: "y2",
+    type: "scatter",
+    mode: "lines",
+    line: { color: plotColors.baseline, width: 1 },
+    hovertemplate,
+    name: formatMetricLabel(metric),
   });
 
-  const bottomMargin = sliderMode.value === "distance" ? 22 : 28;
+  Array.from(perStap.entries())
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .forEach(([stapId, series]) => {
+      traces.push({
+        x: series.x,
+        y: series.y,
+        customdata: series.index,
+        yaxis: "y2",
+        type: "scatter",
+        mode: "lines",
+        line: { color: stapColorMap.get(stapId), width: 2 },
+        hovertemplate,
+        name: `Stationary period ${stapId}`,
+      });
+    });
+
+  if (isDistance) {
+    const markerX = [];
+    const markerY = [];
+    const markerColor = [];
+    const markerSize = [];
+    const markerIndex = [];
+    stapList.forEach((stap) => {
+      const idx = findClosestIndex(timeline, stap.startTime, "ms");
+      const entry = timeline[idx];
+      const numeric = Number(entry?.metrics?.[metric]);
+      if (!Number.isFinite(numeric)) {
+        return;
+      }
+      markerX.push(entry.distanceKm);
+      markerY.push(numeric);
+      markerIndex.push(idx);
+      markerColor.push(stapColorMap.get(stap.stapId) || "#f8fafc");
+      markerSize.push(Math.min(14, 4 + Math.sqrt(Math.max(stap.duration, 0)) * 1.2));
+    });
+    if (markerX.length) {
+      traces.push({
+        x: markerX,
+        y: markerY,
+        customdata: markerIndex,
+        yaxis: "y2",
+        type: "scatter",
+        mode: "markers",
+        marker: {
+          color: markerColor,
+          size: markerSize,
+          line: { color: "rgba(0,0,0,0.4)", width: 1 },
+          opacity: 0.9,
+        },
+        hovertemplate,
+        name: "Stationary periods",
+      });
+    }
+  }
+
   const layout = {
-    height: containerHeight || undefined,
+    height: plotContainer.value.clientHeight || undefined,
     autosize: true,
-    margin: { l: 32, r: 16, t: 8, b: bottomMargin },
+    margin: { l: 8, r: 12, t: 8, b: 24 },
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
-    font: { color: "#f5f2e8", family: "Sora" },
+    font: { color: plotColors.text, family: "Sora" },
+    hoverlabel: { font: { color: plotColors.text } },
+    hovermode: "x",
+    modebar: { bgcolor: "rgba(0,0,0,0)", color: plotColors.baseline, activecolor: plotColors.text },
     showlegend: false,
-    annotations:
-      sliderMode.value === "distance"
-        ? [
-            {
-              xref: "paper",
-              yref: "paper",
-              x: 1,
-              y: 0,
-              xanchor: "right",
-              yanchor: "top",
-              text: "Distance (km)",
-              showarrow: false,
-              font: { size: 12, color: "#f5f2e8" },
-            },
-          ]
-        : [],
-    shapes: currentPressurePoint.value
-      ? [
-          {
-            type: "line",
-            xref: "x",
-            yref: "paper",
-            x0:
-              sliderMode.value === "distance"
-                ? currentPressurePoint.value.distanceKm
-                : currentPressurePoint.value.datetime,
-            x1:
-              sliderMode.value === "distance"
-                ? currentPressurePoint.value.distanceKm
-                : currentPressurePoint.value.datetime,
-            y0: 0,
-            y1: 1,
-            line: { color: PRESSURE_CURSOR_COLOR, width: 3 },
-          },
-        ]
-      : [],
+    shapes: currentPressurePoint.value ? [cursorShape()] : [],
     xaxis: {
-      type: sliderMode.value === "distance" ? "linear" : "date",
-      title: { text: "" },
-      gridcolor: "rgba(255,255,255,0.08)",
-      tickfont: { size: 9 },
+      type: isDistance ? "linear" : "date",
+      gridcolor: plotColors.grid,
+      tickfont: { size: 10 },
+      ticksuffix: isDistance ? " km" : "",
       autorange: !hasRange,
       range: hasRange ? [xMin, xMax] : undefined,
+      automargin: true,
     },
     yaxis: {
-      gridcolor: "rgba(255,255,255,0.08)",
+      range: [0, 1],
+      visible: false,
+      fixedrange: true,
+    },
+    yaxis2: {
+      overlaying: "y",
+      side: "left",
+      // Overlaying axes default to ticks synced with the hidden 0–1 axis.
+      tickmode: "auto",
+      gridcolor: plotColors.grid,
       tickfont: { size: 10 },
-      title: { text: "" },
+      automargin: true,
     },
     dragmode: "zoom",
     editable: false,
-    updatemenus: [
-      {
-        type: "dropdown",
-        x: 0.02,
-        y: 0.98,
-        xanchor: "left",
-        yanchor: "top",
-        bgcolor: "rgba(10, 16, 30, 0.9)",
-        activebgcolor: "rgba(255,255,255,0.12)",
-        activebordercolor: "rgba(255,255,255,0.25)",
-        bordercolor: "rgba(255,255,255,0.15)",
-        font: { size: 11, color: "#f5f2e8" },
-        pad: { t: 0, r: 0, b: 0, l: 0 },
-        active: Math.max(0, availableMetrics.indexOf(selectedMetric.value)),
-        showactive: true,
-        buttons: availableMetrics.map((metric) => {
-          const visibility = Array(traces.length).fill(false);
-          const group = traceGroups.get(metric);
-          if (group) {
-            for (let i = group.start; i < group.end; i += 1) {
-              visibility[i] = true;
-            }
-          }
-          return {
-            label: formatMetricLabel(metric),
-            method: "update",
-            args: [{ visible: visibility }],
-          };
-        }),
-      },
-    ],
   };
 
   Plotly.react(plotContainer.value, traces, layout, {
@@ -1905,38 +1955,92 @@ const updatePlot = () => {
     displaylogo: false,
   });
 
-  if (!plotHandlersBound && plotContainer.value?.on) {
-    plotHandlersBound = true;
-    plotContainer.value.on("plotly_relayout", (event) => {
-      if (suppressPlotRelayout) {
-        suppressPlotRelayout = false;
-        return;
-      }
-      const x0 = event?.["shapes[0].x0"] ?? event?.["shapes[0].x1"];
-      if (x0 == null) {
-        return;
-      }
-      const timeline = activeTimeline.value;
-      if (!timeline.length) {
-        return;
-      }
-      const target =
-        sliderMode.value === "distance"
+  bindPlotHandlers();
+};
+
+const seekToIndex = (index) => {
+  const timeline = activeTimeline.value;
+  if (!timeline.length || !Number.isFinite(index)) {
+    return;
+  }
+  const clamped = Math.min(Math.max(Math.round(index), 0), timeline.length - 1);
+  stopPressurePlayback();
+  if (clamped === currentPressureIndex.value) {
+    return;
+  }
+  currentPressureIndex.value = clamped;
+};
+
+const bindPlotHandlers = () => {
+  const element = plotContainer.value;
+  if (!element?.on || plotHandlersBoundTo === element) {
+    return;
+  }
+  plotHandlersBoundTo = element;
+  // Dragging the red cursor line.
+  element.on("plotly_relayout", (event) => {
+    if (suppressPlotRelayout) {
+      suppressPlotRelayout = false;
+      return;
+    }
+    const x0 = event?.["shapes[0].x0"] ?? event?.["shapes[0].x1"];
+    if (x0 == null) {
+      return;
+    }
+    const timeline = activeTimeline.value;
+    if (!timeline.length) {
+      return;
+    }
+    const target =
+      sliderMode.value === "distance"
+        ? Number(x0)
+        : Number.isFinite(Number(x0))
           ? Number(x0)
-          : Number.isFinite(Number(x0))
-            ? Number(x0)
-            : Date.parse(x0);
-      if (!Number.isFinite(target)) {
-        return;
-      }
-      const key = sliderMode.value === "distance" ? "distanceKm" : "ms";
-      const index = findClosestIndex(timeline, target, key);
-      if (index === currentPressureIndex.value) {
-        return;
-      }
-      suppressPlotRelayout = true;
-      currentPressureIndex.value = index;
-    });
+          : Date.parse(x0);
+    if (!Number.isFinite(target)) {
+      return;
+    }
+    const key = sliderMode.value === "distance" ? "distanceKm" : "ms";
+    const index = findClosestIndex(timeline, target, key);
+    if (index === currentPressureIndex.value) {
+      return;
+    }
+    suppressPlotRelayout = true;
+    seekToIndex(index);
+  });
+  // Clicking anywhere on the plot (hovermode "x" picks the nearest sample).
+  element.on("plotly_click", (event) => {
+    const point = event?.points?.find((p) => Number.isFinite(Number(p.customdata)));
+    if (point) {
+      seekToIndex(Number(point.customdata));
+    }
+  });
+};
+
+const onPlotKeydown = (event) => {
+  const length = activeTimeline.value.length;
+  if (!length) {
+    return;
+  }
+  const smallStep = Math.max(1, Math.round(length / 200));
+  const bigStep = Math.max(1, Math.round(length / 20));
+  const current = currentPressureIndex.value;
+  const moves = {
+    ArrowRight: current + smallStep,
+    ArrowUp: current + smallStep,
+    ArrowLeft: current - smallStep,
+    ArrowDown: current - smallStep,
+    PageUp: current + bigStep,
+    PageDown: current - bigStep,
+    Home: 0,
+    End: length - 1,
+  };
+  if (event.key in moves) {
+    event.preventDefault();
+    seekToIndex(event.shiftKey && event.key.startsWith("Arrow") ? current + Math.sign(moves[event.key] - current) * bigStep : moves[event.key]);
+  } else if (event.key === " " || event.key === "Enter") {
+    event.preventDefault();
+    togglePressurePlayback();
   }
 };
 
@@ -2372,49 +2476,84 @@ const fetchTagData = async (tagId) => {
     return;
   }
   stopPressurePlayback();
+  const isStale = () => selectedTag.value !== tagId;
   try {
-    tagData.value = await loadTagData(tagId);
-    const rawPressure = tagData.value?.pressurepath;
+    // Small files first so the map and details show right away; the pressure path
+    // (the largest file by far) follows and then replaces the coarse fallback timeline.
+    const data = await loadTagData(tagId, { includePressurePath: false });
+    if (isStale()) {
+      return;
+    }
+    tagData.value = data;
+    pressureData = null;
+    hasPressurePath.value = false;
+    isPressureLoading.value = !("pressurepath" in data);
+    applyTimelines();
+
+    let rawPressure = data.pressurepath;
+    if (isPressureLoading.value) {
+      rawPressure = await loadTagPressurePath(tagId).catch((error) => {
+        console.warn("Pressure path not available:", error);
+        return null;
+      });
+      if (isStale()) {
+        return;
+      }
+      isPressureLoading.value = false;
+    }
     pressureData = normalizePressureData(rawPressure);
     if (pressureData) {
+      stopPressurePlayback();
       hasPressurePath.value = true;
-      timeTimeline.value = buildTimeTimeline(pressureData);
-      distanceTimeline.value = buildDistanceTimeline(timeTimeline.value);
-      const availableMetrics = buildMetrics(pressureData?.values || {});
-      metrics.value = availableMetrics;
-      selectedMetric.value = availableMetrics.includes("altitude")
-        ? "altitude"
-        : availableMetrics[0] || "";
-    } else {
-      hasPressurePath.value = false;
-      const fallbackTimelines = buildFallbackTimelines(tagData.value?.paths, tagData.value?.staps, {
-        timeStepDays: FALLBACK_TIME_STEP_DAYS,
-        distanceMinStepKm: FALLBACK_DISTANCE_MIN_STEP_KM,
-        distanceTargetPoints: FALLBACK_DISTANCE_TARGET_POINTS,
-      });
-      timeTimeline.value = fallbackTimelines.timeTimeline;
-      distanceTimeline.value = fallbackTimelines.distanceTimeline;
-      metrics.value = [];
-      selectedMetric.value = "";
-    }
-    currentPressureIndex.value = 0;
-    updateMap();
-    updatePlot();
-    if (canPlayPressure.value) {
-      startPressurePlayback();
-    } else {
-      isPressurePlaying.value = false;
+      applyTimelines();
     }
   } catch (error) {
+    if (isStale()) {
+      return;
+    }
     console.error("Failed to load tag data:", error);
     tagData.value = null;
     pressureData = null;
+    isPressureLoading.value = false;
     timeTimeline.value = [];
     distanceTimeline.value = [];
     metrics.value = [];
     selectedMetric.value = "";
     hasPressurePath.value = false;
     updateMap();
+  }
+};
+
+// Builds the timelines from the pressure path when loaded, otherwise from the stopovers
+// and paths, then redraws and (re)starts playback from the beginning.
+const applyTimelines = () => {
+  nightIntervals.value = buildNightIntervals(pressureData?.twilight);
+  if (pressureData) {
+    timeTimeline.value = buildTimeTimeline(pressureData);
+    distanceTimeline.value = buildDistanceTimeline(timeTimeline.value);
+    const availableMetrics = buildMetrics(pressureData?.values || {});
+    metrics.value = availableMetrics;
+    selectedMetric.value = availableMetrics.includes("altitude")
+      ? "altitude"
+      : availableMetrics[0] || "";
+  } else {
+    const fallbackTimelines = buildFallbackTimelines(tagData.value?.paths, tagData.value?.staps, {
+      timeStepDays: FALLBACK_TIME_STEP_DAYS,
+      distanceMinStepKm: FALLBACK_DISTANCE_MIN_STEP_KM,
+      distanceTargetPoints: FALLBACK_DISTANCE_TARGET_POINTS,
+    });
+    timeTimeline.value = fallbackTimelines.timeTimeline;
+    distanceTimeline.value = fallbackTimelines.distanceTimeline;
+    metrics.value = [];
+    selectedMetric.value = "";
+  }
+  currentPressureIndex.value = 0;
+  updateMap();
+  updatePlot();
+  if (canPlayPressure.value) {
+    startPressurePlayback();
+  } else {
+    isPressurePlaying.value = false;
   }
 };
 
@@ -2460,6 +2599,11 @@ watch(currentPressureIndex, () => {
   updatePressureMarker();
   updatePlotCursor();
   requestFollowFrame();
+});
+
+watch(theme, () => {
+  updatePlot();
+  updatePlotCursor();
 });
 
 watch(sliderMode, () => {
@@ -2508,6 +2652,7 @@ onMounted(async () => {
 
   mapInstance.on("load", () => {
     mapReady = true;
+    isMapLoading.value = false;
     mapInstance.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "top-right");
     mapInstance.addControl(
       new mapboxgl.FullscreenControl({ container: mapWrapper.value || mapContainer.value }),
@@ -2564,8 +2709,8 @@ onMounted(async () => {
     if (mapContainer.value) {
       resizeObserver.observe(mapContainer.value);
     }
-    if (plotContainer.value) {
-      resizeObserver.observe(plotContainer.value);
+    if (plotWrapper.value) {
+      resizeObserver.observe(plotWrapper.value);
     }
   }
 
@@ -2626,27 +2771,31 @@ onBeforeUnmount(() => {
 
 <style scoped>
 :deep(.mapboxgl-ctrl-scale) {
-  background: rgba(0, 0, 0, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--fg) 20%, transparent);
+  border-top: none;
+  color: var(--cream);
 }
 
-:deep(.plotly .updatemenu-item-rect) {
-  fill: rgba(10, 16, 30, 0.9) !important;
-  stroke: rgba(255, 255, 255, 0.2) !important;
+.timeline-select {
+  height: 2.25rem;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--fg) 15%, transparent);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--fg) 85%, transparent);
 }
 
-:deep(.plotly .updatemenu-item:hover .updatemenu-item-rect) {
-  fill: rgba(10, 16, 30, 0.95) !important;
+.timeline-select option {
+  background: var(--ink);
+  color: var(--fg);
 }
 
 :deep(.plotly .hoverlayer .hovertext rect) {
-  fill: rgba(10, 16, 30, 0.9) !important;
-  stroke: rgba(255, 255, 255, 0.15) !important;
-}
-
-:deep(.plotly .updatemenu-container rect) {
-  stroke: rgba(255, 255, 255, 0.6) !important;
-  stroke-width: 1 !important;
+  fill: var(--popup) !important;
+  stroke: color-mix(in srgb, var(--fg) 15%, transparent) !important;
 }
 </style>

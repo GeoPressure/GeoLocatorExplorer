@@ -5,14 +5,14 @@
     <div class="pointer-events-none absolute inset-0">
       <div
         ref="panelRef"
-        class="absolute bottom-14 left-4 right-4 top-auto w-auto sm:bottom-auto sm:left-6 sm:right-auto sm:top-28 sm:w-[min(92vw,420px)]"
+        class="absolute bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 right-4 top-auto w-auto sm:bottom-auto sm:left-6 sm:right-auto sm:top-28 sm:w-[min(92vw,420px)]"
       >
         <div class="panel pointer-events-auto max-h-[58vh] overflow-y-auto sm:max-h-none">
           <div class="flex items-start justify-between gap-3">
             <p class="panel-title">Global Geolocator Data Package</p>
             <button
               type="button"
-              class="pointer-events-auto inline-flex items-center rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70 sm:hidden"
+              class="button-ghost pointer-events-auto sm:hidden"
               @click="togglePanel"
               :aria-expanded="!isPanelCollapsed"
             >
@@ -37,7 +37,7 @@
             </button>
           </div>
           <div v-show="!isPanelCollapsed || !isMobile">
-            <p class="mt-3 text-sm text-white/70 sm:text-sm">
+            <p class="mt-3 text-sm text-fg/70 sm:text-sm">
               Explore the migration movements of small birds tracked with multi-sensor geolocators.
             </p>
 
@@ -46,18 +46,18 @@
                 {{ isPlaying ? "Pause" : "Play" }}
               </button>
               <label class="flex items-center gap-2">
-                <span class="text-[10px] uppercase tracking-[0.2em] text-white/60">Speed</span>
+                <span class="eyebrow">Speed</span>
                 <span class="relative inline-flex items-center">
                   <select
                     v-model.number="speed"
                     aria-label="Playback speed"
-                    class="cursor-pointer appearance-none rounded-full border border-white/20 bg-black/40 py-1.5 pl-3.5 pr-8 text-sm font-semibold tabular-nums text-white/90 transition hover:border-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)]"
+                    class="cursor-pointer appearance-none rounded-full border border-fg/20 bg-shade/40 py-1.5 pl-3.5 pr-8 text-sm font-semibold tabular-nums text-fg/90 transition hover:border-fg/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)]"
                   >
                     <option
                       v-for="option in speedOptions"
                       :key="option"
                       :value="option"
-                      class="bg-[color:var(--ink)] text-white"
+                      class="bg-[color:var(--ink)] text-fg"
                     >
                       {{ option }}×
                     </option>
@@ -65,7 +65,7 @@
                   <svg
                     aria-hidden="true"
                     viewBox="0 0 24 24"
-                    class="pointer-events-none absolute right-3 h-3.5 w-3.5 text-white/60"
+                    class="pointer-events-none absolute right-3 h-3.5 w-3.5 text-fg/60"
                     fill="none"
                     stroke="currentColor"
                     stroke-width="2"
@@ -80,7 +80,7 @@
 
             <div class="mt-4 sm:mt-5">
               <div
-                class="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-white/60"
+                class="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-fg/60"
               >
                 <span>{{ formatDay(currentDay) }}</span>
               </div>
@@ -97,11 +97,11 @@
             </div>
 
             <div
-              class="mt-5 grid grid-cols-3 gap-2 text-[11px] text-white/70 sm:mt-6 sm:gap-3 sm:text-xs"
+              class="mt-5 grid grid-cols-3 gap-2 text-[11px] text-fg/70 sm:mt-6 sm:gap-3 sm:text-xs"
             >
-              <div class="rounded-2xl border border-white/10 bg-white/5 px-2 py-2 sm:px-3 sm:py-3">
+              <div class="card px-2 py-2 sm:px-3 sm:py-3">
                 <div
-                  class="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/50"
+                  class="eyebrow flex items-center gap-2"
                 >
                   <svg
                     aria-hidden="true"
@@ -117,11 +117,11 @@
                   </svg>
                   Projects
                 </div>
-                <p class="mt-1 font-display text-lg text-white sm:mt-2">{{ stats.projects }}</p>
+                <p class="mt-1 font-display text-lg text-fg sm:mt-2">{{ stats.projects }}</p>
               </div>
-              <div class="rounded-2xl border border-white/10 bg-white/5 px-2 py-2 sm:px-3 sm:py-3">
+              <div class="card px-2 py-2 sm:px-3 sm:py-3">
                 <div
-                  class="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/50"
+                  class="eyebrow flex items-center gap-2"
                 >
                   <svg
                     aria-hidden="true"
@@ -138,11 +138,11 @@
                   </svg>
                   Tags
                 </div>
-                <p class="mt-1 font-display text-lg text-white sm:mt-2">{{ stats.tags }}</p>
+                <p class="mt-1 font-display text-lg text-fg sm:mt-2">{{ stats.tags }}</p>
               </div>
-              <div class="rounded-2xl border border-white/10 bg-white/5 px-2 py-2 sm:px-3 sm:py-3">
+              <div class="card px-2 py-2 sm:px-3 sm:py-3">
                 <div
-                  class="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/50"
+                  class="eyebrow flex items-center gap-2"
                 >
                   <svg
                     aria-hidden="true"
@@ -161,21 +161,21 @@
                   </svg>
                   Species
                 </div>
-                <p class="mt-1 font-display text-lg text-white sm:mt-2">{{ stats.species }}</p>
+                <p class="mt-1 font-display text-lg text-fg sm:mt-2">{{ stats.species }}</p>
               </div>
             </div>
 
-            <p class="mt-4 text-sm text-white/70 sm:mt-5">
+            <p class="mt-4 text-sm text-fg/70 sm:mt-5">
               This dataset is the result of a global community of researchers openly sharing their
               data to advance research, conservation, and public outreach.
             </p>
-            <p class="mt-3 text-sm text-white/70">
+            <p class="mt-3 text-sm text-fg/70">
               Learn more at
               <a
                 href="https://geopressure.org/GeoLocator-DP/"
                 target="_blank"
                 rel="noreferrer"
-                class="text-[color:var(--teal)] underline decoration-white/30 underline-offset-4 transition hover:text-white"
+                class="link"
               >
                 geopressure.org/GeoLocator-DP
               </a>
@@ -186,12 +186,12 @@
       <div
         v-if="showNavTips"
         id="navigation-tips"
-        class="pointer-events-auto absolute right-4 top-28 w-[min(88vw,360px)] rounded-2xl border border-white/10 bg-gradient-to-br from-black/80 via-black/60 to-black/40 p-5 text-sm text-white/75 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur sm:bottom-14 sm:right-6 sm:top-auto"
+        class="panel pointer-events-auto absolute right-4 top-28 max-sm:hidden w-[min(88vw,360px)] p-5 text-sm text-fg/70 sm:bottom-14 sm:right-6 sm:top-auto"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-2">
             <span
-              class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[color:var(--teal)]"
+              class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-fg/10 bg-fg/5 text-[color:var(--teal)]"
             >
               <svg
                 aria-hidden="true"
@@ -208,11 +208,11 @@
                 <circle cx="12" cy="16.8" r="0.6" fill="currentColor" />
               </svg>
             </span>
-            <p class="text-[11px] uppercase tracking-[0.22em] text-white/70">Navigation tips</p>
+            <p class="eyebrow text-fg/70">Navigation tips</p>
           </div>
           <button
             type="button"
-            class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition hover:border-white/30 hover:text-white"
+            class="icon-button h-7 w-7"
             @click="dismissNavTips"
             aria-label="Dismiss navigation tips"
           >
@@ -227,16 +227,18 @@
             </svg>
           </button>
         </div>
-        <ul class="mt-3 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-white/80">
-          <li>{{ isMobile ? "Drag to move the globe; pinch to zoom." : "Drag to move the globe; scroll to zoom." }}</li>
-          <li>Each dot represents an individual bird, colored by project.</li>
+        <ul class="mt-3 list-disc space-y-1 pl-4 text-[13px] leading-relaxed text-fg/80">
+          <li>
+            Each dot is an individual bird, colored by project.
+            {{ isMobile ? "Drag to move the globe; pinch to zoom." : "Drag to move the globe; scroll to zoom." }}
+          </li>
           <li>{{ isMobile ? "Tap" : "Click" }} a dot to learn more about the bird or its project.</li>
         </ul>
       </div>
       <button
         v-else
         type="button"
-        class="pointer-events-auto absolute right-4 top-28 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/60 text-lg text-white/70 backdrop-blur transition hover:border-white/30 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)] sm:bottom-14 sm:right-6 sm:top-auto"
+        class="icon-button pointer-events-auto absolute right-4 top-28 max-sm:hidden h-11 w-11 sm:bottom-14 sm:right-6 sm:top-auto"
         aria-label="Show navigation tips"
         aria-controls="navigation-tips"
         title="Navigation tips"
@@ -262,15 +264,17 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import mapboxgl from "mapbox-gl";
 import { loadGlobe, loadProjects } from "../lib/data";
 import { projectSlug } from "../lib/format";
 import { MAPBOX_TOKEN } from "../lib/config";
 import { buildTagPopupHtml } from "../lib/popup";
 import { createSidePopup } from "../lib/mapbox";
+import { basemapStyle, mapFog, useTheme } from "../lib/theme";
 import chroma from "chroma-js";
 
+const { theme } = useTheme();
 const mapContainer = ref(null);
 const panelRef = ref(null);
 const isMobile = ref(false);
@@ -291,6 +295,9 @@ const totalDays = ref(100);
 const stats = ref({ projects: 0, tags: 0, species: 0 });
 
 let mapInstance;
+// True once the current basemap style has loaded (reset while switching theme).
+// Not map.isStyleLoaded(): that also stays false while tiles are still downloading.
+let styleReady = false;
 let geojsonSource;
 let geojsonData;
 let tailSource;
@@ -402,9 +409,15 @@ const togglePanel = () => {
 const dayFormatter = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
 const formatDay = (day) => dayFormatter.format(new Date(Date.UTC(2021, 0, day)));
 
+// Bright pastels read well on the dark basemap; the light basemap needs deeper tones.
+const SPECIES_ANCHORS = {
+  dark: ["#56f0c4", "#7dd3fc", "#f5b470", "#f97316", "#34d399", "#facc15"],
+  light: ["#0a7d5e", "#0369a1", "#b45309", "#c2410c", "#047857", "#a16207"],
+};
+
 const buildSpeciesColors = (species) => {
   const unique = Array.from(new Set(species.filter(Boolean)));
-  const anchors = ["#56f0c4", "#7dd3fc", "#f5b470", "#f97316", "#34d399", "#facc15"];
+  const anchors = SPECIES_ANCHORS[theme.value] || SPECIES_ANCHORS.dark;
   const palette = chroma.scale(anchors).mode("lch").colors(Math.max(unique.length, 1));
   const map = new Map();
   unique.forEach((name, index) => {
@@ -424,7 +437,7 @@ const setupDots = (paths) => {
     const tagId = tag.tag_id;
     const meta = tagMetaMap.get(tagId);
     const species = meta.species;
-    const color = speciesColorMap.get(species) || "#56f0c4";
+    const color = speciesColorMap.get(species) || SPECIES_ANCHORS[theme.value][0];
     return {
       type: "Feature",
       properties: {
@@ -450,7 +463,7 @@ const setupDots = (paths) => {
       type: "Feature",
       properties: {
         tagId: tag.tag_id,
-        color: speciesColorMap.get(tagMetaMap.get(tag.tag_id).species) || "#56f0c4",
+        color: speciesColorMap.get(tagMetaMap.get(tag.tag_id).species) || SPECIES_ANCHORS[theme.value][0],
       },
       geometry: {
         type: "LineString",
@@ -459,6 +472,13 @@ const setupDots = (paths) => {
     })),
   };
 
+  addMapLayers();
+  bindMapEvents();
+};
+
+// Sources and layers are dropped whenever the basemap style changes (theme switch),
+// so they are (re)created here from the data kept in memory.
+const addMapLayers = () => {
   mapInstance.addSource("path-dots", {
     type: "geojson",
     data: geojsonData,
@@ -521,7 +541,9 @@ const setupDots = (paths) => {
   if (isPlaying.value && !animationId) {
     animationId = requestAnimationFrame(tick);
   }
+};
 
+const bindMapEvents = () => {
   mapInstance.on("mousemove", "paths-dots", (event) => {
     if (!event.features || !event.features.length) {
       return;
@@ -553,6 +575,9 @@ const setupDots = (paths) => {
 };
 
 const updateDay = (day) => {
+  if (!geojsonSource || !tailSource) {
+    return;
+  }
   const dayIndex = day - 1;
   geojsonData.features.forEach((feature, index) => {
     const positions = dayPositions[index];
@@ -664,7 +689,7 @@ const setHover = (feature, lngLat, { lock = false } = {}) => {
     return;
   }
   hoverTagId = tagId;
-  const color = props.color || "#56f0c4";
+  const color = props.color || SPECIES_ANCHORS[theme.value][0];
   const segments = tagLineMap.get(tagId);
   const meta = tagMetaMap.get(tagId);
 
@@ -714,15 +739,39 @@ const clearHover = ({ force = false } = {}) => {
     hoverPopup.remove();
     hoverPopup = null;
   }
-  hoverLineSource.setData({ type: "FeatureCollection", features: [] });
+  hoverLineSource?.setData({ type: "FeatureCollection", features: [] });
 };
+
+const applyTheme = () => {
+  if (!mapInstance) {
+    return;
+  }
+  clearHover({ force: true });
+  geojsonSource = null;
+  tailSource = null;
+  hoverLineSource = null;
+  if (geojsonData) {
+    speciesColorMap = buildSpeciesColors(Array.from(tagMetaMap.values(), (meta) => meta.species));
+    [geojsonData, tailGeojson].forEach((collection) => {
+      collection.features.forEach((feature) => {
+        const species = tagMetaMap.get(feature.properties.tagId)?.species;
+        feature.properties.color = speciesColorMap.get(species) || SPECIES_ANCHORS[theme.value][0];
+      });
+    });
+    mapInstance.once("style.load", addMapLayers);
+  }
+  styleReady = false;
+  mapInstance.setStyle(basemapStyle(theme.value));
+};
+
+watch(theme, applyTheme);
 
 onMounted(async () => {
   mapboxgl.accessToken = MAPBOX_TOKEN;
   const largeScreen = window.matchMedia("(min-width: 1600px)").matches;
   mapInstance = new mapboxgl.Map({
     container: mapContainer.value,
-    style: "mapbox://styles/mapbox/dark-v11",
+    style: basemapStyle(theme.value),
     center: [15, 5],
     zoom: largeScreen ? 2 : 1.2,
     pitch: 15,
@@ -736,12 +785,8 @@ onMounted(async () => {
   updateIsMobile();
 
   mapInstance.on("style.load", () => {
-    mapInstance.setFog({
-      "color": "rgba(10, 16, 30, 0.55)",
-      "high-color": "rgba(60, 80, 120, 0.2)",
-      "space-color": "rgba(3, 6, 12, 0.8)",
-      "horizon-blend": 0.1,
-    });
+    styleReady = true;
+    mapInstance.setFog(mapFog(theme.value));
   });
   mapInstance.once("load", () => {
     updateMapPadding();
@@ -797,10 +842,10 @@ onMounted(async () => {
     species: speciesSet.size,
   };
 
-  if (mapInstance.loaded()) {
+  if (styleReady) {
     setupDots(paths);
   } else {
-    mapInstance.once("load", () => {
+    mapInstance.once("style.load", () => {
       setupDots(paths);
     });
   }

@@ -1,20 +1,20 @@
 <template>
-  <section class="min-h-screen w-full bg-[color:var(--ink)] px-6 pb-6 pt-24">
+  <section class="min-h-screen w-full bg-[color:var(--ink)] px-3 pb-3 pt-[4.5rem]">
     <div
-      class="grid grid-cols-1 gap-6 lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[minmax(360px,500px)_minmax(0,1fr)]"
+      class="grid grid-cols-1 gap-3 lg:h-[calc(100vh-5.25rem)] lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]"
     >
-      <div class="panel order-2 h-auto overflow-visible lg:order-1 lg:h-full lg:overflow-y-auto">
+      <div class="panel order-2 h-auto overflow-visible rounded-xl p-4 lg:order-1 lg:h-full lg:overflow-y-auto">
         <div>
-          <div class="flex items-center justify-between gap-3">
-            <label class="text-xs uppercase tracking-[0.2em] text-white/60">Select Project</label>
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <label class="eyebrow whitespace-nowrap">Select project</label>
             <button
               type="button"
-              class="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
+              class="inline-flex items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-fg/50 transition hover:text-fg"
               @click="openPrivateModal()"
               aria-label="Manage private Zenodo datapackages"
             >
               <span class="text-[color:var(--teal)]">+</span>
-              <span>Add Private Project</span>
+              <span>Add private project</span>
             </button>
           </div>
           <Combobox
@@ -25,7 +25,7 @@
           >
             <div class="relative">
               <ComboboxInput
-                class="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 pr-10 text-sm text-white placeholder:text-white/40"
+                class="field pr-10"
                 :displayValue="comboboxDisplayValue"
                 @change="searchQuery = $event.target.value"
                 @input="searchQuery = $event.target.value"
@@ -39,7 +39,7 @@
                 placeholder="Search title, species, author, keyword"
               />
               <ComboboxButton
-                class="absolute inset-y-0 right-0 flex items-center pr-3 text-white/50"
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-fg/50"
                 @click="openProjectPicker"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
@@ -54,9 +54,9 @@
             <ComboboxOptions
               static
               v-show="isSearching"
-              class="absolute z-10 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-white/10 bg-[color:var(--slate)] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
+              class="menu z-10 max-h-80"
             >
-              <div v-if="!filteredProjects.length" class="px-3 py-2 text-xs text-white/50">
+              <div v-if="!filteredProjects.length" class="px-3 py-2 text-xs text-fg/50">
                 No projects found
               </div>
               <ComboboxOption
@@ -68,22 +68,22 @@
                 <div
                   :class="[
                     'rounded-lg px-3 py-2 text-left transition',
-                    active ? 'bg-white/10' : '',
-                    selected ? 'border border-white/20' : 'border border-transparent',
+                    active ? 'bg-fg/10' : '',
+                    selected ? 'border border-fg/20' : 'border border-transparent',
                   ]"
                 >
-                  <p class="text-sm font-medium text-white">
+                  <p class="text-sm font-medium text-fg">
                     {{ displayProjectTitle(project.title) }}
                     <span
                       v-if="project.is_private"
-                      class="ml-2 rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                      class="badge-private"
                     >
                       Private
                     </span>
                   </p>
                   <p
                     v-if="projectSubtitle(project)"
-                    class="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/50"
+                    class="mt-1 text-[11px] uppercase tracking-[0.2em] text-fg/50"
                   >
                     {{ projectSubtitle(project) }}
                   </p>
@@ -99,19 +99,19 @@
               {{ displayProjectTitle(selectedProject.title) }}
               <span
                 v-if="selectedProject.is_private"
-                class="ml-2 align-middle rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                class="badge-private"
               >
                 Private
               </span>
             </h2>
           </div>
 
-          <div v-if="contributors.length" class="space-y-2 text-sm text-white/70">
+          <div v-if="contributors.length" class="space-y-2 text-sm text-fg/70">
             <div class="flex flex-wrap gap-2">
               <span
                 v-for="contributor in contributors"
                 :key="contributor.name + contributor.orcid"
-                class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
+                class="chip"
               >
                 <span>{{ contributor.name }}</span>
                 <a
@@ -120,62 +120,35 @@
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <img src="/icons/ORCID_iD.svg" alt="ORCID" class="h-4 w-4" />
+                  <img :src="`${baseUrl}icons/ORCID_iD.svg`" alt="ORCID" class="h-4 w-4" />
                 </a>
               </span>
             </div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="card p-4">
             <div class="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p class="text-[10px] uppercase tracking-[0.3em] text-white/50">Total Tags</p>
-                <p class="mt-1 font-display text-4xl text-white sm:text-5xl">{{ totalTags }}</p>
+                <p class="eyebrow">Total Tags</p>
+                <p class="mt-1 font-display text-4xl text-fg sm:text-5xl">{{ totalTags }}</p>
               </div>
             </div>
 
-            <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div class="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                <p class="text-[10px] uppercase tracking-[0.25em] text-white/50">Sensors</p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <span
-                    v-for="entry in sensorEntries"
-                    :key="entry.key"
-                    class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/70"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 24 24"
-                      class="h-4 w-4"
-                      :style="{ color: entry.color }"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      v-html="entry.icon"
-                    ></svg>
-                    {{ entry.label }}
-                    <span class="text-white">{{ entry.value }}</span>
-                  </span>
-                </div>
-              </div>
-
-              <div class="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                <p class="text-[10px] uppercase tracking-[0.25em] text-white/50">Outputs</p>
-                <div class="mt-2 grid grid-cols-1 gap-2 text-xs">
+            <!-- One box only: sensor and output counts are plain rows, not nested cards. -->
+            <div class="mt-4 grid gap-x-6 gap-y-4 border-t border-fg/10 pt-4 sm:grid-cols-2">
+              <div v-for="group in countGroups" :key="group.title">
+                <p class="eyebrow">{{ group.title }}</p>
+                <dl class="mt-2 divide-y divide-fg/5 text-sm">
                   <div
-                    v-for="entry in trackEntries"
+                    v-for="entry in group.entries"
                     :key="entry.key"
-                    class="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2"
+                    class="flex items-center justify-between gap-3 py-1.5"
                   >
-                    <div
-                      class="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/60"
-                    >
+                    <dt class="flex items-center gap-2 text-fg/70">
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 24 24"
-                        class="h-4 w-4"
+                        class="h-4 w-4 shrink-0"
                         :style="{ color: entry.color }"
                         fill="none"
                         stroke="currentColor"
@@ -185,67 +158,65 @@
                         v-html="entry.icon"
                       ></svg>
                       {{ entry.label }}
-                    </div>
-                    <span class="font-display text-base text-white">{{ entry.value }}</span>
+                    </dt>
+                    <dd class="font-display tabular-nums text-fg">{{ entry.value }}</dd>
                   </div>
-                </div>
+                </dl>
               </div>
             </div>
           </div>
 
           <div
             v-if="selectedProject.description"
-            class="project-description rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70"
+            class="project-description card p-4 text-sm text-fg/70"
           >
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Description</p>
+            <p class="eyebrow">Description</p>
             <div class="mt-2" v-html="selectedProject.description"></div>
           </div>
 
           <div class="flex flex-wrap gap-2">
-            <span
+            <!-- The whole badge links to eBird when the species has an eBird code. -->
+            <component
+              :is="taxon.speciesCode ? 'a' : 'span'"
               v-for="taxon in displayTaxa"
               :key="taxon.key"
-              class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.1em] text-white/70"
+              class="chip"
+              :class="taxon.speciesCode ? 'transition hover:border-fg/30 hover:text-fg' : ''"
+              v-bind="
+                taxon.speciesCode
+                  ? {
+                      href: `https://ebird.org/species/${taxon.speciesCode}`,
+                      target: '_blank',
+                      rel: 'noreferrer',
+                      title: `${taxon.label} on eBird`,
+                    }
+                  : {}
+              "
             >
-              <a
-                v-if="taxon.speciesCode"
-                :href="`https://ebird.org/species/${taxon.speciesCode}`"
-                target="_blank"
-                rel="noreferrer"
-                class="rounded-full bg-white/20 p-1"
-                aria-label="Open eBird species page"
-              >
-                <img src="/ebird.svg" alt="eBird" class="h-3 w-3" />
-              </a>
+              <span v-if="taxon.speciesCode" class="-ml-1.5 rounded-full bg-white p-1">
+                <img :src="`${baseUrl}ebird.svg`" alt="eBird" class="h-3 w-3" />
+              </span>
               <span>{{ taxon.label }}</span>
-            </span>
+            </component>
           </div>
 
-          <div v-if="selectedProject.temporal?.start" class="grid gap-2 text-sm text-white/70">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Timeline</p>
+          <div v-if="selectedProject.temporal?.start" class="grid gap-2 text-sm text-fg/70">
+            <p class="eyebrow">Timeline</p>
             <p>{{ selectedProject.temporal.start }} → {{ selectedProject.temporal.end }}</p>
           </div>
 
-          <div v-if="selectedProject.keywords?.length" class="text-xs text-white/60">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Keywords</p>
-            <span class="mt-2 inline-block">{{ keywordsList }}</span>
-            <span v-if="keywordsOverflow" class="ml-2 text-white/40"
-              >+{{ keywordsOverflow }} more</span
-            >
-          </div>
-
-          <div v-if="relatedIdentifiers.length" class="text-xs text-white/70">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Related Identifiers</p>
+          <div v-if="relatedIdentifiers.length" class="text-xs text-fg/70">
+            <p class="eyebrow">Related Identifiers</p>
             <ul class="mt-3 space-y-2">
               <li v-for="item in relatedIdentifiers" :key="item.identifier + item.relationType">
-                <span class="text-white/50">{{ item.relationType || "Related" }}: </span>
-                <span class="text-white/50"> </span>
+                <span class="text-fg/50">{{ item.relationType || "Related" }}: </span>
+                <span class="text-fg/50"> </span>
                 <a
                   v-if="item.identifierType === 'doi'"
                   :href="`https://doi.org/${item.identifier}`"
                   target="_blank"
                   rel="noreferrer"
-                  class="text-[color:var(--teal)] hover:text-white"
+                  class="link"
                 >
                   {{ item.identifier }}
                 </a>
@@ -254,7 +225,7 @@
                   :href="item.identifier"
                   target="_blank"
                   rel="noreferrer"
-                  class="text-[color:var(--teal)] hover:text-white"
+                  class="link"
                 >
                   {{ item.identifier }}
                 </a>
@@ -269,7 +240,7 @@
               :href="repositoryUrl"
               target="_blank"
               rel="noreferrer"
-              class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+              class="chip"
             >
               <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
                 <path
@@ -284,22 +255,22 @@
               :href="selectedProject.concept_doi"
               target="_blank"
               rel="noreferrer"
-              class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70 transition hover:border-white/30 hover:text-white"
+              class="chip"
             >
-              <span class="rounded-full bg-white/20 px-2 py-0.5 text-[9px] text-white/70">DOI</span>
-              <span class="font-semibold">10.5281/zenodo.{{ selectedProject.concept_id }}</span>
+              <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--teal)]">DOI</span>
+              <span>10.5281/zenodo.{{ selectedProject.concept_id }}</span>
             </a>
           </div>
 
           <div
             v-if="citationText"
-            class="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70"
+            class="card p-4 text-xs text-fg/70"
           >
             <div class="flex items-center justify-between gap-3">
-              <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Citation</p>
+              <p class="eyebrow">Citation</p>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60 transition hover:border-white/30 hover:text-white"
+                class="button-ghost"
                 :disabled="!citationText"
                 @click="copyCitation"
                 aria-label="Copy citation"
@@ -321,12 +292,12 @@
                 <span>{{ citationCopied ? "Copied" : "Copy" }}</span>
               </button>
             </div>
-            <p class="mt-3 text-[11px] text-white/70">{{ citationText }}</p>
+            <p class="mt-3 text-[11px] text-fg/70">{{ citationText }}</p>
           </div>
 
           <div
             v-if="footerMeta.length"
-            class="flex whitespace-nowrap gap-3 overflow-x-auto text-[10px] uppercase tracking-[0.2em] text-white/40"
+            class="flex whitespace-nowrap gap-3 overflow-x-auto text-[10px] uppercase tracking-[0.2em] text-fg/50"
           >
             <template v-for="(item, index) in footerMeta" :key="item.label">
               <span v-if="index > 0">·</span>
@@ -336,7 +307,7 @@
                   :href="item.href"
                   target="_blank"
                   rel="noreferrer"
-                  class="hover:text-white"
+                  class="hover:text-fg"
                 >
                   {{ item.label }} {{ item.value }}
                 </a>
@@ -348,24 +319,24 @@
       </div>
 
       <div
-        class="relative order-1 h-[60vh] w-full overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--slate)] lg:order-2 lg:h-full"
+        class="relative order-1 h-[60vh] w-full overflow-hidden rounded-xl border border-fg/10 bg-[color:var(--slate)] lg:order-2 lg:h-full"
       >
         <div ref="mapContainer" class="h-full w-full"></div>
         <div
-          class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+          class="pointer-events-none absolute inset-0 bg-gradient-to-t from-shade/40 via-transparent to-transparent"
         ></div>
         <div
           v-if="embargoNotice"
-          class="absolute inset-0 flex items-center justify-center bg-black/60 text-center"
+          class="absolute inset-0 flex items-center justify-center bg-shade/60 text-center"
         >
-          <div class="rounded-2xl border border-white/10 bg-black/50 px-6 py-4">
-            <p class="text-xs uppercase tracking-[0.3em] text-white/50">Project Data</p>
-            <p class="mt-2 font-display text-lg text-white">
+          <div class="rounded-2xl border border-fg/10 bg-[color:var(--panel)] px-6 py-4 backdrop-blur">
+            <p class="eyebrow">Project Data</p>
+            <p class="mt-2 font-display text-lg text-fg">
               Under Embargo until {{ embargoNotice }}
             </p>
             <button
               type="button"
-              class="mt-4 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
+              class="mt-4 inline-flex items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-fg/50 transition hover:text-fg"
               @click="openPrivateModal(selectedProject?.record_id || '')"
             >
               <span class="text-[color:var(--teal)]">+</span>
@@ -395,6 +366,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { basemapStyle, mapFog, useTheme } from "../lib/theme";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
 import {
@@ -426,6 +398,7 @@ import { MAPBOX_TOKEN } from "../lib/config";
 import { buildTagPopupHtml } from "../lib/popup";
 import { createSidePopup } from "../lib/mapbox";
 
+const { theme } = useTheme();
 const route = useRoute();
 const router = useRouter();
 const mapContainer = ref(null);
@@ -595,9 +568,6 @@ const displayTaxa = computed(() => {
     .filter((entry) => entry.label);
 });
 
-const normalizedKeywords = computed(() => normalizeKeywords(selectedProject.value?.keywords));
-const keywordsList = computed(() => normalizedKeywords.value.slice(0, 6).join(", "));
-const keywordsOverflow = computed(() => Math.max(normalizedKeywords.value.length - 6, 0));
 
 const hasProjectMapData = computed(() => {
   const flag = selectedProject.value?.has_project_data;
@@ -738,6 +708,13 @@ const trackEntries = computed(() => {
     }))
     .filter((entry) => entry.value > 0);
 });
+
+const countGroups = computed(() =>
+  [
+    { title: "Sensors", entries: sensorEntries.value },
+    { title: "Outputs", entries: trackEntries.value },
+  ].filter((group) => group.entries.length),
+);
 
 const citationText = computed(() => {
   const raw = selectedProject.value?.bibliographicCitation || "";
@@ -1078,7 +1055,7 @@ const scheduleHoverHide = () => {
   }, 120);
 };
 
-const updateMap = () => {
+const updateMap = ({ fit = true } = {}) => {
   if (!mapInstance || !mapReady) {
     return;
   }
@@ -1095,7 +1072,7 @@ const updateMap = () => {
   const colorMap = new Map();
   projectTags.value.forEach((tag, idx) => {
     const tagId = tag.tag_id;
-    const color = colorForIndex(idx, projectTags.value.length);
+    const color = colorForIndex(idx, projectTags.value.length, theme.value);
     colorMap.set(tagId, color);
     const sortedStaps = [...tag.staps].sort(
       (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
@@ -1160,7 +1137,7 @@ const updateMap = () => {
     });
   }
 
-  if (features.length && Number.isFinite(minLon)) {
+  if (fit && features.length && Number.isFinite(minLon)) {
     mapInstance.fitBounds(
       [
         [minLon, minLat],
@@ -1386,15 +1363,31 @@ watch(
   },
 );
 
+// Switching basemap drops our sources and layers; rebuild them without moving the camera.
+watch(theme, (value) => {
+  if (!mapInstance) {
+    return;
+  }
+  clearTagHover({ force: true });
+  if (mapReady) {
+    mapInstance.once("style.load", () => updateMap({ fit: false }));
+  }
+  mapInstance.setStyle(basemapStyle(value));
+});
+
 onMounted(async () => {
   mapboxgl.accessToken = MAPBOX_TOKEN;
   mapInstance = new mapboxgl.Map({
     container: mapContainer.value,
-    style: "mapbox://styles/mapbox/dark-v11",
+    style: basemapStyle(theme.value),
     center: [5, 20],
     zoom: 1.4,
     pitch: 0,
     bearing: 0,
+  });
+
+  mapInstance.on("style.load", () => {
+    mapInstance.setFog(mapFog(theme.value));
   });
 
   mapInstance.once("load", () => {

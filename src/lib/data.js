@@ -199,7 +199,36 @@ export async function loadProjectData(projectId) {
   return loadJSON(`data/projects/${String(projectId || "").trim()}.json`);
 }
 
-export async function loadTagData(tagId) {
+const tagAssetBase = (tagId) => `data/tags/${String(tagId || "").trim()}`;
+
+// The pressure path is by far the largest tag file (up to several MB), so it is loaded on
+// its own: the page can draw the map from the small files first. Only the most recent
+// tag's request is kept (the Tag page asks twice: on navigation and once the map has
+// loaded), rather than the shared cache, which would hold every visited tag in memory.
+let lastPressureRequest = { tagId: null, promise: null };
+
+export function loadTagPressurePath(tagId) {
+  if (lastPressureRequest.tagId === tagId && lastPressureRequest.promise) {
+    return lastPressureRequest.promise;
+  }
+  const promise = fetch(`${import.meta.env.BASE_URL}${tagAssetBase(tagId)}/pressurepath.json`).then(
+    (response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to load pressure path for ${tagId}: ${response.status}`);
+      }
+      return response.json();
+    },
+  );
+  lastPressureRequest = { tagId, promise };
+  promise.catch(() => {
+    if (lastPressureRequest.promise === promise) {
+      lastPressureRequest = { tagId: null, promise: null };
+    }
+  });
+  return promise;
+}
+
+export async function loadTagData(tagId, { includePressurePath = true } = {}) {
   const { privateContext } = await loadPublicProjectsWithPrivateContext();
   const privateEntry = privateContext.entries.find(({ record }) => record.tagDataById?.[tagId]);
   if (privateEntry) {
@@ -210,13 +239,15 @@ export async function loadTagData(tagId) {
       is_private: true,
     };
   }
-  const base = `data/tags/${String(tagId || "").trim()}`;
+  const base = tagAssetBase(tagId);
   const [meta, paths, staps, observations, pressurepath] = await Promise.all([
     loadJSON(`${base}/meta.json`),
     loadJSON(`${base}/paths.json`),
     loadJSON(`${base}/staps.json`),
     loadJSON(`${base}/observations.json`),
-    loadJSON(`${base}/pressurepath.json`),
+    includePressurePath ? loadTagPressurePath(tagId) : undefined,
   ]);
-  return { ...meta, paths, staps, observations, pressurepath };
+  return includePressurePath
+    ? { ...meta, paths, staps, observations, pressurepath }
+    : { ...meta, paths, staps, observations };
 }

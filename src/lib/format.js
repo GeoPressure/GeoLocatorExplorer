@@ -58,7 +58,8 @@ export const formatLongDate = (value) => {
   return longDateFormatter.format(date);
 };
 
-export const colorForIndex = (index, total) => {
+// Distinct hue per index. Use theme "light" for a light background (deeper colors).
+export const colorForIndex = (index, total, theme = "dark") => {
   const hue = Math.round((index / Math.max(total, 1)) * 360);
-  return `hsl(${hue}, 70%, 60%)`;
+  return theme === "light" ? `hsl(${hue}, 75%, 40%)` : `hsl(${hue}, 70%, 60%)`;
 };

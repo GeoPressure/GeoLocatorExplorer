@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { advanceAlongTimeline, buildHeadings, buildMetrics, buildTimeTimeline, buildDistanceTimeline, normalizePressureData, smoothAngle, findClosestIndex, buildFallbackTimelines } from "../src/lib/tagData";
+import { advanceAlongTimeline, buildHeadings, buildNightIntervals, buildMetrics, buildTimeTimeline, buildDistanceTimeline, normalizePressureData, smoothAngle, findClosestIndex, buildFallbackTimelines } from "../src/lib/tagData";
 
 test("does not offer pressure metrics with only missing values", () => {
   expect(buildMetrics({ altitude: [null, null], surface_pressure: ["", null] })).toEqual([]);
@@ -31,6 +31,42 @@ test("uses most-likely pressure samples instead of mixing them with simulations"
   const normalized = normalizePressureData({ datetime: ["2024-01-01", "2024-01-01"], lon: [1, 2], lat: [51, 52], altitude: [10, 20], type: ["simulation", "most_likely"] });
   expect(normalized.lon).toEqual([2]);
   expect(normalized.altitude).toEqual([20]);
+});
+
+test("reads the compact pressure path format with minute steps and twilight lists", () => {
+  const normalized = normalizePressureData({
+    t0: "2024-01-01T00:00:00Z",
+    dt_min: [0, 5, 30],
+    lon: [1, 2, 3],
+    lat: [51, 52, 53],
+    altitude: [10, 20, 30],
+    twilight: { sunrise: ["2024-01-01T07:00:00Z"], sunset: ["2024-01-01T17:00:00Z"] },
+  });
+  expect(normalized.datetime).toEqual(["2024-01-01T00:00:00Z", "2024-01-01T00:05:00Z", "2024-01-01T00:35:00Z"]);
+  expect(normalized.altitude).toEqual([10, 20, 30]);
+  expect(normalized.twilight).toEqual({ sunrise: ["2024-01-01T07:00:00Z"], sunset: ["2024-01-01T17:00:00Z"] });
+});
+
+test("derives unique twilight times from per-row sunrise/sunset columns", () => {
+  const normalized = normalizePressureData({
+    datetime: ["2024-01-01T00:00:00Z", "2024-01-01T00:05:00Z"],
+    lon: [1, 1],
+    lat: [51, 51],
+    sunrise: ["2024-01-01T07:00:00Z", "2024-01-01T07:00:00Z"],
+    sunset: ["2024-01-01T17:00:00Z", null],
+  });
+  expect(normalized.twilight).toEqual({ sunrise: ["2024-01-01T07:00:00Z"], sunset: ["2024-01-01T17:00:00Z"] });
+});
+
+test("builds merged night periods from sunset to the next sunrise", () => {
+  const ms = (value) => Date.parse(value);
+  expect(
+    buildNightIntervals({
+      sunset: ["2024-01-01T17:00:00Z", "2024-01-01T17:05:00Z", "2024-01-02T17:00:00Z"],
+      sunrise: ["2024-01-01T07:00:00Z", "2024-01-02T07:00:00Z", "2024-01-02T07:04:00Z"],
+    }),
+  ).toEqual([[ms("2024-01-01T17:00:00Z"), ms("2024-01-02T07:00:00Z")]]);
+  expect(buildNightIntervals({ sunset: ["2024-06-01T22:00:00Z"], sunrise: [] })).toEqual([]);
 });
 
 test("smooths bearings across the 180 degree boundary", () => {
