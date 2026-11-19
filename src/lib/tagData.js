@@ -394,7 +394,42 @@ export const buildTimeTimeline = (data) => {
       },
     });
   }
+  addGroundAltitude(timeline);
   return timeline;
+};
+
+// Ground height under the bird, used to draw its height above the ground more exaggerated
+// than the terrain. On a stationary period (integer stap_id) the bird is on the ground, so
+// its pressure altitude is the ground height. During a flight (fractional stap_id) the
+// ground is interpolated in time between the take-off and landing heights. Without
+// stationary rows the ground is 0, which keeps the whole altitude at the bird scale.
+const addGroundAltitude = (timeline) => {
+  const isStationary = (entry) => {
+    const id = toNumber(entry.stapId);
+    return Number.isInteger(id) && id > 0;
+  };
+  let prev = null;
+  let next = -1;
+  timeline.forEach((entry, i) => {
+    if (isStationary(entry)) {
+      entry.ground = entry.altitude;
+      prev = entry;
+      return;
+    }
+    if (next < i) {
+      next = i + 1;
+      while (next < timeline.length && !isStationary(timeline[next])) {
+        next += 1;
+      }
+    }
+    const after = timeline[next];
+    if (prev && after && after.ms > prev.ms) {
+      const t = Math.min(Math.max((entry.ms - prev.ms) / (after.ms - prev.ms), 0), 1);
+      entry.ground = lerp(prev.altitude, after.altitude, t);
+    } else {
+      entry.ground = prev?.altitude ?? after?.altitude ?? 0;
+    }
+  });
 };
 
 export const buildDistanceTimeline = (timeline) => {
@@ -408,6 +443,8 @@ export const buildDistanceTimeline = (timeline) => {
   let lon = null;
   let count = 0;
   let altSum = 0;
+  let groundSum = 0;
+  let groundCount = 0;
   let surfSum = 0;
   let altCount = 0;
   let surfCount = 0;
@@ -426,6 +463,7 @@ export const buildDistanceTimeline = (timeline) => {
     const next = {
       ...lastEntry,
       altitude: Number.isFinite(avgAlt) ? avgAlt : lastEntry.altitude,
+      ground: groundCount ? groundSum / groundCount : lastEntry.ground,
       distanceKm: Math.round(distanceKm),
       metrics: {
         altitude: Number.isFinite(avgAlt) ? avgAlt : null,
@@ -435,7 +473,7 @@ export const buildDistanceTimeline = (timeline) => {
 
     out.push(next);
     prevOut = next;
-    count = altSum = surfSum = 0;
+    count = altSum = surfSum = groundSum = groundCount = 0;
     altCount = surfCount = 0;
   };
 
@@ -453,6 +491,7 @@ export const buildDistanceTimeline = (timeline) => {
 
     if (Number.isFinite(alt)) { altSum += alt; altCount += 1; }
     if (Number.isFinite(surf)) { surfSum += surf; surfCount += 1; }
+    if (Number.isFinite(e.ground)) { groundSum += e.ground; groundCount += 1; }
 
     count += 1;
     lastEntry = e;

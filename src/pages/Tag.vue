@@ -519,7 +519,11 @@ const togglePanel = () => {
 let mapInstance;
 let threebox;
 let pressureLines = [];
-const terrainExaggeration = 8;
+// The terrain is exaggerated less than the bird's height above it: at the bird-view zoom
+// a strong terrain exaggeration turns mountains into needles, while flight heights of a
+// few km need more to be visible.
+const TERRAIN_EXAGGERATION = 6;
+const BIRD_HEIGHT_EXAGGERATION = 8;
 let pressureData;
 let resizeHandler;
 let mapReady = false;
@@ -667,10 +671,18 @@ const getPressureBearing = () => {
   return headings[index] ?? 0;
 };
 
-// Altitude in the exaggerated 3D scene: the terrain is drawn `terrainExaggeration` times
-// higher, so the bird, its path and the camera target must use the same scale to stay
-// above the ground and consistent with each other.
-const displayAltitude = (altitude) => Math.max(0, Number(altitude) || 0) * terrainExaggeration;
+// Altitude in the exaggerated 3D scene. The ground under the bird (see addGroundAltitude) is
+// drawn at the terrain scale and the height above it at the bird scale, so the bird sits on
+// the terrain while stationary and climbs visibly in flight. It is never drawn below its own
+// altitude at the terrain scale, so it cannot sink into the exaggerated terrain.
+const displayAltitude = (point) => {
+  const altitude = Math.max(0, Number(point?.altitude) || 0);
+  const ground = Math.max(0, Number(point?.ground) || 0);
+  return Math.max(
+    altitude * TERRAIN_EXAGGERATION,
+    ground * TERRAIN_EXAGGERATION + (altitude - ground) * BIRD_HEIGHT_EXAGGERATION,
+  );
+};
 
 const tagMeta = computed(() => tags.value.find((tag) => tag.tag_id === selectedTag.value));
 const tagDetails = computed(() => ({
@@ -767,6 +779,7 @@ const getInterpolatedPressurePoint = () => {
     lon: lerp(current.lon, next.lon, t),
     lat: lerp(current.lat, next.lat, t),
     altitude: lerp(current.altitude, next.altitude, t),
+    ground: lerp(Number(current.ground) || 0, Number(next.ground) || 0, t),
     distanceKm: lerp(current.distanceKm, next.distanceKm, t),
     ms:
       Number.isFinite(current.ms) && Number.isFinite(next.ms)
@@ -1228,7 +1241,7 @@ const ensureThreeboxPressureLine = () => {
   const lineCoords = timeline.map((entry) => [
     entry.lon,
     entry.lat,
-    displayAltitude(entry.altitude),
+    displayAltitude(entry),
   ]);
   if (!lineCoords.length) {
     return;
@@ -1248,7 +1261,7 @@ const applyBirdViewState = (enabled) => {
     return;
   }
   if (enabled) {
-    mapInstance.setTerrain({ source: "mapbox-dem", exaggeration: terrainExaggeration });
+    mapInstance.setTerrain({ source: "mapbox-dem", exaggeration: TERRAIN_EXAGGERATION });
     ensureThreeboxPressureLine();
   } else {
     mapInstance.setTerrain(null);
@@ -1328,7 +1341,7 @@ const updatePressureMarker = () => {
 };
 
 const markerAltitude = (point) =>
-  followState ? followState.markerAlt : displayAltitude(point?.altitude);
+  followState ? followState.markerAlt : displayAltitude(point);
 
 const stopFollowLoop = () => {
   if (followRafId) {
@@ -1368,7 +1381,7 @@ const followStep = (now) => {
   if (!point || !Number.isFinite(point.lon) || !Number.isFinite(point.lat)) {
     return;
   }
-  const targetAlt = displayAltitude(point.altitude);
+  const targetAlt = displayAltitude(point);
   const heading = getPressureBearing();
   let dt = 0;
   if (!followState) {
@@ -2098,7 +2111,7 @@ const updateMap = () => {
     const lineCoords = timeline.map((entry) => [
       entry.lon,
       entry.lat,
-      displayAltitude(entry.altitude),
+      displayAltitude(entry),
     ]);
 
     if (lineCoords.length) {
