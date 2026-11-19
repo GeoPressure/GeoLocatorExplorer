@@ -2632,7 +2632,9 @@ watch([timeTimeline, distanceTimeline], () => {
 
 onMounted(async () => {
   await refreshTags();
-  const initialTag = route.params.tagId ? String(route.params.tagId) : tags.value[0]?.tag_id;
+  // Without a tag in the URL, show a random one rather than always the first.
+  const randomTag = tags.value[Math.floor(Math.random() * tags.value.length)]?.tag_id;
+  const initialTag = route.params.tagId ? String(route.params.tagId) : randomTag;
   selectedTag.value = initialTag;
 
   privateDatapackagesChangedHandler = async () => {

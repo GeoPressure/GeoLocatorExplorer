@@ -282,8 +282,8 @@ body {
   border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
   background: var(--popup);
   box-shadow: 0 24px 60px var(--shadow);
-  min-width: 300px;
-  padding: 14px 16px;
+  min-width: 180px;
+  padding: 10px 14px;
   color: var(--cream);
 }
 

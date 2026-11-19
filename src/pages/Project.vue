@@ -334,10 +334,7 @@
           position-class="bottom-3 right-3"
         >
           <li>Each line is one bird's track, with one color per bird.</li>
-          <li>
-            Colored circles are the places where it stopped; a larger circle means a longer
-            stay. White circles mark where tags were fitted (larger) and retrieved (smaller).
-          </li>
+          <li>Circles are the places where it stopped; a larger circle means a longer stay.</li>
           <li>Hover a track to see the bird; click it to keep its details open.</li>
         </MapTips>
         <div
@@ -441,11 +438,9 @@ let projectDataRequest = 0;
 const emptyProjectData = () => ({ tags: [], known_locations: [] });
 const projectData = ref(emptyProjectData());
 let hoverPopup;
-let locationPopup;
 let hoverTagId = null;
 let pinnedTagId = null;
 let hoverHandlersBound = false;
-let locationHandlersBound = false;
 let hoverHideTimer;
 let tagInfoMap = new Map();
 
@@ -589,9 +584,6 @@ const footerMeta = computed(() => {
   const meta = [];
   if (selectedProject.value?.created) {
     meta.push({ label: "Created", value: formatShortDate(selectedProject.value.created) });
-  }
-  if (selectedProject.value?.version) {
-    meta.push({ label: "Version", value: selectedProject.value.version });
   }
   licenseItems.value.forEach((license) => {
     if (license.name) {
@@ -789,7 +781,6 @@ const repositoryLabel = computed(() => {
   }
 });
 const projectTags = computed(() => projectData.value.tags);
-const projectKnownLocations = computed(() => projectData.value.known_locations);
 const projectTagIds = computed(() => projectTags.value.map((entry) => entry.tag_id));
 
 const updateProjectData = async () => {
@@ -966,15 +957,7 @@ function clearMapData() {
   if (stapsSource) {
     stapsSource.setData(emptyCollection);
   }
-  const locationSource = mapInstance.getSource("project-locations");
-  if (locationSource) {
-    locationSource.setData(emptyCollection);
-  }
   clearTagHover({ force: true });
-  if (locationPopup) {
-    locationPopup.remove();
-    locationPopup = null;
-  }
   tagInfoMap = new Map();
 }
 
@@ -1231,66 +1214,6 @@ const updateMap = ({ fit = true } = {}) => {
     clearTagHover({ force: true });
   }
 
-  const locationFeatures = projectKnownLocations.value.map((loc) => ({
-    type: "Feature",
-    properties: {
-      kind: loc.kind || "known",
-      name: loc.location_name || "",
-    },
-    geometry: {
-      type: "Point",
-      coordinates: [loc.longitude, loc.latitude],
-    },
-  }));
-
-  const locationCollection = {
-    type: "FeatureCollection",
-    features: locationFeatures,
-  };
-
-  const locationSource = mapInstance.getSource("project-locations");
-  if (locationSource) {
-    locationSource.setData(locationCollection);
-  } else {
-    mapInstance.addSource("project-locations", {
-      type: "geojson",
-      data: locationCollection,
-    });
-    mapInstance.addLayer({
-      id: "project-locations-circles",
-      type: "circle",
-      source: "project-locations",
-      paint: {
-        "circle-color": ["case", ["==", ["get", "kind"], "equipment"], "#f8fafc", "#cbd5f5"],
-        "circle-radius": ["case", ["==", ["get", "kind"], "equipment"], 8, 6],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "rgba(0,0,0,0.7)",
-        "circle-opacity": 0.95,
-      },
-    });
-  }
-
-  if (!locationHandlersBound && mapInstance.getLayer("project-locations-circles")) {
-    locationHandlersBound = true;
-    mapInstance.on("mousemove", "project-locations-circles", (event) => {
-      const name = event.features[0].properties?.name || "Location";
-      if (!locationPopup) {
-        locationPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
-      }
-      locationPopup
-        .setLngLat(event.lngLat)
-        .setHTML(`<div class="map-tooltip"><p class="map-tooltip__meta">${name}</p></div>`)
-        .addTo(mapInstance);
-    });
-
-    mapInstance.on("mouseleave", "project-locations-circles", () => {
-      if (locationPopup) {
-        locationPopup.remove();
-        locationPopup = null;
-      }
-    });
-  }
-
   const staps = projectTags.value.flatMap((tag) =>
     tag.staps.map((stap) => ({
       ...stap,
@@ -1431,9 +1354,6 @@ onBeforeUnmount(() => {
   }
   if (hoverPopup) {
     hoverPopup.remove();
-  }
-  if (locationPopup) {
-    locationPopup.remove();
   }
   if (hoverHideTimer) {
     clearTimeout(hoverHideTimer);
