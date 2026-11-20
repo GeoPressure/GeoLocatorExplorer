@@ -437,7 +437,6 @@ import { useTheme } from "../lib/theme";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
 import Plotly from "plotly.js-basic-dist-min";
-import { Threebox, THREE } from "threebox-plugin";
 import { loadTagData, loadTagPressurePath, loadTags } from "../lib/data";
 import { PRIVATE_DATAPACKAGES_CHANGED_EVENT } from "../lib/privateDatapackageStore";
 import {
@@ -584,6 +583,27 @@ const GENERIC_BIRD_URL = new URL(
   "models/flying_bird.glb",
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
+// Threebox and three.js (about half of this page's code) only draw bird view, so they load
+// on their own: in the background once the map is up, or right away when bird view is on.
+let Threebox = null;
+let THREE = null;
+let threeboxRequest = null;
+const loadThreebox = () => {
+  threeboxRequest ??= import("threebox-plugin")
+    .then((module) => {
+      ({ Threebox, THREE } = module);
+      if (mapReady && isCameraFollowEnabled.value) {
+        applyBirdViewState(true);
+        updatePressureMarker();
+        requestFollowFrame();
+      }
+    })
+    .catch((error) => {
+      threeboxRequest = null;
+      console.error("Failed to load threebox:", error);
+    });
+  return threeboxRequest;
+};
 // { bm: resolver module, index } once loaded; null until then or on failure
 let birdModels = null;
 let birdviewModelsRequest = null;
@@ -1335,6 +1355,10 @@ const ensureThreeboxInitialized = () => {
   if (threebox) {
     return threebox;
   }
+  if (!Threebox) {
+    loadThreebox();
+    return null;
+  }
   threebox = new Threebox(mapInstance, mapInstance.getCanvas().getContext("webgl"), {
     defaultLights: true,
   });
@@ -1390,7 +1414,31 @@ const ensureThreeboxPressureLine = () => {
   if (pressureLines.length) {
     return;
   }
-  // Densified with the same curve as the bird (see smoothValueAt), so the bird stays on the line.
+  const lineCoords = SMOOTH_3D_PATH_LINE ? smoothPathLineCoords(timeline) : timeline.map((entry) => [
+    entry.lon,
+    entry.lat,
+    displayAltitude(entry),
+  ]);
+  if (!lineCoords.length) {
+    return;
+  }
+  const line = threebox.line({
+    geometry: lineCoords,
+    color: PRESSURE_PATH_COLOR,
+    width: 4,
+    opacity: 0.9,
+  });
+  pressureLines.push(line);
+  threebox.add(line);
+};
+
+// The 3D path line has always been drawn through the samples with straight segments
+// (updateMap built it before the densified version below could be). The densified line
+// follows the same curve as the bird but has 6x the vertices: ~1M on a 170k-row track,
+// ~700 ms to build when bird view opens. Off to keep the line as it is drawn today.
+const SMOOTH_3D_PATH_LINE = false;
+// Densified with the same curve as the bird (see smoothValueAt), so the bird stays on the line.
+const smoothPathLineCoords = (timeline) => {
   const lineCoords = [];
   timeline.forEach((entry, i) => {
     const next = timeline[i + 1];
@@ -1410,17 +1458,7 @@ const ensureThreeboxPressureLine = () => {
       ]);
     }
   });
-  if (!lineCoords.length) {
-    return;
-  }
-  const line = threebox.line({
-    geometry: lineCoords,
-    color: PRESSURE_PATH_COLOR,
-    width: 4,
-    opacity: 0.9,
-  });
-  pressureLines.push(line);
-  threebox.add(line);
+  return lineCoords;
 };
 
 const applyBirdViewState = (enabled) => {
@@ -2487,32 +2525,15 @@ const updateMap = () => {
       hasBounds = true;
     });
 
-    if (!ensureThreeboxInitialized()) {
-      return;
-    }
-
-    if (pressureLines.length) {
+    // The 3D path line is only drawn in bird view: (re)built there, or now if it is on.
+    if (pressureLines.length && threebox) {
       pressureLines.forEach((line) => threebox.remove(line));
       pressureLines = [];
     }
-
-    const lineCoords = timeline.map((entry) => [
-      entry.lon,
-      entry.lat,
-      displayAltitude(entry),
-    ]);
-
-    if (lineCoords.length) {
-      const line = threebox.line({
-        geometry: lineCoords,
-        color: PRESSURE_PATH_COLOR,
-        width: 4,
-        opacity: 0.9,
-      });
-      pressureLines.push(line);
-      threebox.add(line);
+    if (isCameraFollowEnabled.value) {
+      ensureThreeboxPressureLine();
+      setThreeboxVisibility(true);
     }
-    setThreeboxVisibility(isCameraFollowEnabled.value);
   } else if (pressureLines.length && threebox) {
     pressureLines.forEach((line) => threebox.remove(line));
     pressureLines = [];
@@ -3104,6 +3125,8 @@ onMounted(async () => {
     requestAnimationFrame(() => {
       mapInstance.resize();
     });
+    const idle = window.requestIdleCallback || ((callback) => setTimeout(callback, 1500));
+    idle(() => loadThreebox(), { timeout: 4000 });
   });
 
   resizeHandler = () => {
