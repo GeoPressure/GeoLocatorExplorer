@@ -29,3 +29,5 @@ output/
 *.sln
 *.sw?
 /scripts/__pycache__
+# Social-media files: stored in the GitHub release, added to dist/ by the deploy workflow
+public/media/
