@@ -318,10 +318,27 @@ const expandMinuteSteps = (t0, steps) => {
     return [];
   }
   const datetime = new Array(steps.length);
+  // Same strings as new Date(ms).toISOString() without ".000", but the date part is only
+  // formatted when the day changes: on a 170k-row track toISOString was ~200 ms.
+  let dayStart = NaN;
+  let dayPrefix = "";
+  const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
   let ms = startMs;
   for (let i = 0; i < steps.length; i += 1) {
     ms += (Number(steps[i]) || 0) * 60000;
-    datetime[i] = new Date(ms).toISOString().replace(".000Z", "Z");
+    const ofDay = ms - dayStart;
+    if (!(ofDay >= 0 && ofDay < MS_PER_DAY) || ms % 1000 !== 0) {
+      const iso = new Date(ms).toISOString();
+      if (ms % 1000 !== 0 || iso.length !== 24) {
+        datetime[i] = iso.replace(".000Z", "Z");
+        dayStart = NaN;
+        continue;
+      }
+      dayStart = ms - (ms % MS_PER_DAY + MS_PER_DAY) % MS_PER_DAY;
+      dayPrefix = iso.slice(0, 11);
+    }
+    const sec = Math.floor((ms - dayStart) / 1000);
+    datetime[i] = `${dayPrefix}${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}Z`;
   }
   return datetime;
 };

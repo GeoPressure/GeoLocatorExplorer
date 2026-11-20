@@ -134,3 +134,16 @@ test("advanceAlongTimeline caps distance travelled but not time spent stationary
   // Reaching the end wraps to the start.
   expect(advanceAlongTimeline(timeline, 5, 0, 1)).toEqual({ index: 0, frac: 0 });
 });
+
+test("normalizePressureData expands minute steps to the same strings as toISOString", () => {
+  const t0 = "1999-12-31T22:10:00Z";
+  const dtMin = [0, 5, 60, 1440, 0.5, 7, -20, 2880 * 30, 1e-3, 3, 527040, 1];
+  const n = dtMin.length;
+  const data = normalizePressureData({ t0, dt_min: dtMin, lon: Array(n).fill(1), lat: Array(n).fill(2) });
+  let ms = Date.parse(t0);
+  const expected = dtMin.map((step) => {
+    ms += step * 60000;
+    return new Date(ms).toISOString().replace(".000Z", "Z");
+  });
+  expect(data.datetime).toEqual(expected);
+});
