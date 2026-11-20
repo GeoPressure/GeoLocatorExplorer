@@ -5,7 +5,7 @@ import Project from "../src/pages/Project.vue";
 import { loadZenodoDatapackage } from "../src/lib/datapackageProcessor";
 import { listPrivateDatapackages, savePrivateDatapackage } from "../src/lib/privateDatapackageStore";
 
-vi.mock("mapbox-gl", () => ({ default: { Map: class { once() {} remove() {} } } }));
+vi.mock("mapbox-gl", () => ({ default: { Map: class { on() {} once() {} remove() {} } } }));
 vi.mock("../src/lib/datapackageProcessor", () => ({ loadZenodoDatapackage: vi.fn() }));
 vi.mock("../src/lib/privateDatapackageStore", async (importOriginal) => ({
   ...await importOriginal(),

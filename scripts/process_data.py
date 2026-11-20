@@ -19,6 +19,7 @@ import csv
 import datetime as dt
 import json
 import re
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -70,28 +71,108 @@ def to_int(value: Optional[str]) -> Optional[int]:
     return int(float(text))
 
 
-def parse_csv_contributors(value: str) -> List[Dict[str, Any]]:
+def load_known_contributors(datapackage_path: Path) -> List[Dict[str, Any]]:
+    """Contributors with full details (ORCID in `path`) from the Master datapackage.json."""
+    if not datapackage_path.exists():
+        return []
+    with datapackage_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return [c for c in payload.get("contributors") or [] if isinstance(c, dict) and c.get("title")]
+
+
+def loose_name_key(name: str) -> Optional[Tuple[str, str]]:
+    """(family, first given name) without accents, hyphens, case or middle initials.
+
+    Packages spell the same person differently ("Wong, Joanna B." / "Wong, Joanna",
+    "Adamík" / "Adamik", "Macías-Torres" / "Macías Torres", "Stephanie J. Szarmach").
+    """
+    text = unicodedata.normalize("NFKD", name or "")
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).lower()
+    text = re.sub(r"[-.]", " ", text)
+    if "," in text:
+        family, given = (part.strip() for part in text.split(",", 1))
+    else:
+        tokens = text.split()
+        if len(tokens) < 2:
+            return None
+        family, given = tokens[-1], " ".join(tokens[:-1])
+    family = " ".join(family.split())
+    given_tokens = given.split()
+    if not family or not given_tokens:
+        return None
+    return family, given_tokens[0]
+
+
+def parse_csv_contributors(
+    value: str, known: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
+    """Split the flattened contributors column into people.
+
+    The Master writes each package's contributors as one comma-separated string, either
+    "Family, Given, Family, Given" or "Given Family, Given Family". Names found in the
+    Master's own contributor list (`known`) are matched first and get their full record,
+    including the ORCID in `path`; the rest are split by the shape of the text.
+    """
     text = clean_csv_text(value)
     if not text:
         return []
+    known = known or []
+    by_title = {c["title"]: c for c in known}
+    by_given_family = {
+        f"{c.get('givenName', '')} {c.get('familyName', '')}".strip(): c
+        for c in known
+        if c.get("givenName") and c.get("familyName")
+    }
+    loose_counts: Dict[Tuple[str, str], int] = defaultdict(int)
+    loose: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    for c in known:
+        key = loose_name_key(c["title"])
+        if key:
+            loose_counts[key] += 1
+            loose[key] = c
+    by_loose = {key: c for key, c in loose.items() if loose_counts[key] == 1}
+
+    def person(title: str, match: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if not match:
+            # A spelling variant of a known person keeps this package's spelling and
+            # takes the ORCID, roles and organization from the Master record.
+            variant = by_loose.get(loose_name_key(title) or ("", ""))
+            if not variant:
+                return {"title": title}
+            return {"title": title} | {
+                key: variant[key] for key in ("path", "roles", "organization") if variant.get(key)
+            }
+        return {
+            key: match[key]
+            for key in ("title", "givenName", "familyName", "path", "roles", "organization")
+            if match.get(key)
+        }
+
     if ";" in text:
         names = [item.strip() for item in text.split(";") if item.strip()]
-        return [{"title": name} for name in names]
+        return [person(name, by_title.get(name)) for name in names]
+
     parts = [item.strip() for item in text.split(",") if item.strip()]
-    if not parts:
-        return []
-    if len(parts) == 1:
-        return [{"title": parts[0]}]
     contributors: List[Dict[str, Any]] = []
     index = 0
     while index < len(parts):
-        if index + 1 < len(parts):
-            title = f"{parts[index]}, {parts[index + 1]}"
+        pair = f"{parts[index]}, {parts[index + 1]}" if index + 1 < len(parts) else None
+        if pair and pair in by_title:
+            contributors.append(person(pair, by_title[pair]))
+            index += 2
+        elif parts[index] in by_given_family:
+            contributors.append(person(parts[index], by_given_family[parts[index]]))
+            index += 1
+        elif " " in parts[index] and (pair is None or " " in parts[index + 1]):
+            # "Given Family" style: each part is already a full name.
+            contributors.append(person(parts[index]))
+            index += 1
+        elif pair:
+            contributors.append(person(pair))
             index += 2
         else:
-            title = parts[index]
+            contributors.append(person(parts[index]))
             index += 1
-        contributors.append({"title": title})
     return contributors
 
 
@@ -143,7 +224,9 @@ def parse_csv_related_identifiers(value: str) -> List[Dict[str, Any]]:
     return related
 
 
-def parse_datapackages_csv(path: Path) -> List[Dict[str, Any]]:
+def parse_datapackages_csv(
+    path: Path, known_contributors: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     count_keys = [
         "tags",
         "measurements",
@@ -220,7 +303,7 @@ def parse_datapackages_csv(path: Path) -> List[Dict[str, Any]]:
                 "bibliographicCitation": clean_csv_text(raw["bibliographicCitation"]),
                 "taxonomic": parse_taxonomic(raw["taxonomic"]),
                 "numberTags": counts,
-                "contributors": parse_csv_contributors(raw["contributors"]),
+                "contributors": parse_csv_contributors(raw["contributors"], known_contributors),
                 "licenses": parse_csv_licenses(raw["licenses"]),
                 "relatedIdentifiers": parse_csv_related_identifiers(raw["relatedIdentifiers"]),
             }
@@ -230,10 +313,12 @@ def parse_datapackages_csv(path: Path) -> List[Dict[str, Any]]:
     return rows
 
 
-def load_datapackage_records(csv_path: Path) -> List[Dict[str, Any]]:
+def load_datapackage_records(
+    csv_path: Path, known_contributors: Optional[List[Dict[str, Any]]] = None
+) -> List[Dict[str, Any]]:
     if not csv_path.exists():
         raise SystemExit(f"Missing {csv_path}")
-    rows = parse_datapackages_csv(csv_path)
+    rows = parse_datapackages_csv(csv_path, known_contributors)
     if not rows:
         raise SystemExit("datapackages.csv could not be parsed.")
     return rows
@@ -339,7 +424,8 @@ def load_resource_descriptors(datapackage_path: Path) -> Dict[str, Dict[str, Any
     base_dir = datapackage_path.parent
     for resource in data["resources"]:
         name = resource["name"]
-        fields = resource["schema"]["fields"]
+        # Non-tabular resources (e.g. params, plain JSON) have no table schema.
+        fields = (resource.get("schema") or {}).get("fields", [])
         path_value = resource["path"]
         resources[name] = {
             "name": name,
@@ -1117,6 +1203,81 @@ def load_raw_table_by_tag(
     return columns, rows_by_tag
 
 
+# Columns of pressurepaths.csv that the frontend reads. `type` and `j` are only used to keep
+# the most-likely path; `sunrise`/`sunset` become the compact `twilight` lists.
+PRESSUREPATH_READ_COLUMNS = [
+    "datetime",
+    "type",
+    "j",
+    "stap_id",
+    "lat",
+    "lon",
+    "altitude",
+    "surface_pressure",
+    "sunrise",
+    "sunset",
+]
+PRESSUREPATH_VALUE_TRANSFORMS = {
+    "stap_id": lambda v: round_decimal(v, 3),
+    "lat": round_coord,
+    "lon": round_coord,
+    "altitude": round_int,
+    "surface_pressure": lambda v: round_decimal(v, 1),
+}
+
+
+def compact_pressurepath(rows: Dict[str, List[Any]]) -> Dict[str, Any]:
+    """Write the most-likely pressure path in a compact columnar form.
+
+    Instead of one ISO string per row, times are `t0` plus `dt_min` (minutes since the
+    previous row), which gzip shrinks to almost nothing for regular 5-30 min data.
+    Sunrise/sunset are the same for every row of a day, so they are stored once as
+    sorted unique lists under `twilight`. Columns that are entirely empty are dropped.
+    The frontend's normalizePressureData (src/lib/tagData.js) reads this format.
+    """
+    datetimes = rows.get("datetime") or []
+    types = rows.get("type") or []
+    keep_most_likely = "most_likely" in types
+    samples = []
+    for i, value in enumerate(datetimes):
+        if keep_most_likely and types[i] != "most_likely":
+            continue
+        parsed = parse_datetime(str(value)) if value is not None else None
+        if parsed is None:
+            continue
+        samples.append((parsed.replace(second=0, microsecond=0), i))
+    if not samples:
+        return {}
+    samples.sort(key=lambda item: item[0])
+
+    t0 = samples[0][0]
+    dt_min = [0]
+    for (previous, _), (current, _) in zip(samples, samples[1:]):
+        dt_min.append(int(round((current - previous).total_seconds() / 60)))
+
+    payload: Dict[str, Any] = {
+        "t0": t0.isoformat().replace("+00:00", "Z"),
+        "dt_min": dt_min,
+    }
+    for column, transform in PRESSUREPATH_VALUE_TRANSFORMS.items():
+        source = rows.get(column)
+        if not source:
+            continue
+        values = [transform(source[i]) for _, i in samples]
+        if any(value is not None for value in values):
+            payload[column] = values
+
+    twilight = {}
+    for column in ("sunrise", "sunset"):
+        source = rows.get(column) or []
+        unique = sorted({round_datetime_minute(source[i]) for _, i in samples if source[i]})
+        if unique:
+            twilight[column] = unique
+    if twilight:
+        payload["twilight"] = twilight
+    return payload
+
+
 def process_tag_assets(
     output_dir: Path,
     tags: List[Dict[str, Any]],
@@ -1171,24 +1332,7 @@ def process_tag_assets(
 
         pressure_rows = pressure_rows_by_tag.get(tag_id, {}) if pressure_columns else {}
         if pressure_rows:
-            pressure_rows = transform_rows(
-                pressure_rows,
-                {
-                    "stap_id": lambda v: round_decimal(v, 3),
-                    "lat": round_coord,
-                    "lon": round_coord,
-                    "altitude": round_int,
-                    "pressure": lambda v: round_decimal(v, 1),
-                    "pressure_norm": lambda v: round_decimal(v, 1),
-                    "datetime": round_datetime_minute,
-                },
-            )
-            if "datetime" in pressure_rows:
-                pressure_rows["datetime"] = [
-                    round_datetime_minute(value) for value in pressure_rows["datetime"]
-                ]
-            if "t" in pressure_rows:
-                pressure_rows["t"] = [round_datetime_minute(value) for value in pressure_rows["t"]]
+            pressure_rows = compact_pressurepath(pressure_rows)
 
         payloads = {
             "meta": meta,
@@ -1245,7 +1389,9 @@ def main() -> None:
     prepare_output_dir(output_dir)
     expected_paths: set[Path] = set()
 
-    records = load_datapackage_records(datapackage_csv_path)
+    records = load_datapackage_records(
+        datapackage_csv_path, load_known_contributors(datapackage_resource_path)
+    )
     print("[process] loading datapackages.csv")
     projects, project_index, record_to_project = process_projects(records)
 
@@ -1333,12 +1479,22 @@ def main() -> None:
         lambda: {"names": set(), "coords": set(), "entries": []}
     )
 
-    for tag_id, locations in tag_locations.items():
+    # Sorted so the first-seen location and the output order are the same on every run.
+    def location_sort_key(entry: Dict[str, Any]) -> Tuple[str, float, float]:
+        lat = entry.get("latitude")
+        lon = entry.get("longitude")
+        return (
+            (entry.get("location_name") or "").strip(),
+            lat if isinstance(lat, (int, float)) else float("inf"),
+            lon if isinstance(lon, (int, float)) else float("inf"),
+        )
+
+    for tag_id, locations in sorted(tag_locations.items()):
         project_id = tag_to_project.get(tag_id)
         if not project_id or project_id not in project_map:
             continue
         for loc_type in ("equipment", "retrieval"):
-            for entry in locations.get(loc_type, []):
+            for entry in sorted(locations.get(loc_type, []), key=location_sort_key):
                 name = (entry.get("location_name") or "").strip()
                 coord_key = (entry.get("latitude"), entry.get("longitude"))
                 bucket = project_location_sets[project_id]
@@ -1432,20 +1588,10 @@ def main() -> None:
     pressure_columns: List[str] = []
     pressure_rows_by_tag: Dict[str, Dict[str, List[Any]]] = {}
     if not args.skip_pressurepaths:
-        pressure_columns_all = [
-            field.get("name")
-            for field in resources["pressurepaths"].get("fields", [])
-            if field.get("name")
-        ]
-        pressure_columns = [
-            col
-            for col in pressure_columns_all
-            if col not in {"tag_id", "ind", "location_name", "life_stage", "nb_sample"}
-        ]
         pressure_columns, pressure_rows_by_tag = load_raw_table_by_tag(
             resources["pressurepaths"],
             allowed_tags=valid_tag_ids,
-            allowed_columns=pressure_columns,
+            allowed_columns=PRESSUREPATH_READ_COLUMNS,
             max_simulation_j=10,
         )
 

@@ -1,46 +1,52 @@
 <template>
-  <section class="min-h-screen w-full bg-[color:var(--ink)] px-6 pb-6 pt-24">
+  <section class="min-h-screen w-full bg-[color:var(--ink)] px-3 pb-3 pt-[4.5rem]">
     <div
-      class="grid grid-cols-1 gap-6 lg:h-[calc(100vh-7.5rem)] lg:grid-cols-[minmax(360px,500px)_minmax(0,1fr)]"
+      class="grid grid-cols-1 gap-3 lg:h-[calc(100vh-5.25rem)] lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]"
     >
-      <div class="panel order-2 h-auto overflow-visible lg:order-1 lg:h-full lg:overflow-y-auto">
+      <div class="panel order-2 h-auto overflow-visible rounded-xl p-4 lg:order-1 lg:h-full lg:overflow-y-auto">
         <div>
-          <div class="flex items-center justify-between gap-3">
-            <label class="text-xs uppercase tracking-[0.2em] text-white/60">Select Project</label>
+          <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <label class="eyebrow whitespace-nowrap">Select project</label>
             <button
               type="button"
-              class="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
+              class="inline-flex items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-fg/50 transition hover:text-fg"
               @click="openPrivateModal()"
               aria-label="Manage private Zenodo datapackages"
             >
               <span class="text-[color:var(--teal)]">+</span>
-              <span>Add Private Project</span>
+              <span>Add private project</span>
             </button>
           </div>
+          <!-- Headless UI owns open/close: clicking the field opens the full list with
+               the current project selected, typing filters it, Escape or clicking
+               elsewhere closes it and restores the project name. -->
           <Combobox
             v-model="selectedId"
             as="div"
             class="relative mt-2"
+            v-slot="{ open }"
             @update:modelValue="updateProject"
           >
             <div class="relative">
               <ComboboxInput
-                class="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3 pr-10 text-sm text-white placeholder:text-white/40"
-                :displayValue="comboboxDisplayValue"
+                class="field pr-10"
+                :displayValue="projectDisplayValue"
                 @change="searchQuery = $event.target.value"
-                @input="searchQuery = $event.target.value"
-                @focus="openProjectPicker"
-                @click="openProjectPicker"
-                @keydown.escape="isSearching = false"
+                @focus="$event.target.select()"
+                @click="openOptions(open, projectMenuButton, $event)"
+                @keydown.enter="pickFirstMatch"
+                @blur.capture="$event.stopImmediatePropagation()"
                 autocomplete="off"
                 autocorrect="off"
                 autocapitalize="off"
                 spellcheck="false"
-                placeholder="Search title, species, author, keyword"
+                placeholder="Search title, species, author"
               />
               <ComboboxButton
-                class="absolute inset-y-0 right-0 flex items-center pr-3 text-white/50"
-                @click="openProjectPicker"
+                ref="projectMenuButton"
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-fg/50"
+                aria-label="Show all projects"
+                @click="searchQuery = ''"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
                   <path
@@ -51,12 +57,8 @@
                 </svg>
               </ComboboxButton>
             </div>
-            <ComboboxOptions
-              static
-              v-show="isSearching"
-              class="absolute z-10 mt-2 max-h-80 w-full overflow-auto rounded-xl border border-white/10 bg-[color:var(--slate)] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
-            >
-              <div v-if="!filteredProjects.length" class="px-3 py-2 text-xs text-white/50">
+            <ComboboxOptions class="menu z-10 max-h-80">
+              <div v-if="!filteredProjects.length" class="px-3 py-2 text-xs text-fg/50">
                 No projects found
               </div>
               <ComboboxOption
@@ -68,23 +70,20 @@
                 <div
                   :class="[
                     'rounded-lg px-3 py-2 text-left transition',
-                    active ? 'bg-white/10' : '',
-                    selected ? 'border border-white/20' : 'border border-transparent',
+                    active ? 'bg-fg/10' : '',
+                    selected ? 'border border-fg/20' : 'border border-transparent',
                   ]"
                 >
-                  <p class="text-sm font-medium text-white">
+                  <p class="text-sm font-medium text-fg">
                     {{ displayProjectTitle(project.title) }}
                     <span
                       v-if="project.is_private"
-                      class="ml-2 rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                      class="badge-private"
                     >
                       Private
                     </span>
                   </p>
-                  <p
-                    v-if="projectSubtitle(project)"
-                    class="mt-1 text-[11px] uppercase tracking-[0.2em] text-white/50"
-                  >
+                  <p v-if="projectSubtitle(project)" class="mt-0.5 text-xs text-fg/60">
                     {{ projectSubtitle(project) }}
                   </p>
                 </div>
@@ -99,19 +98,19 @@
               {{ displayProjectTitle(selectedProject.title) }}
               <span
                 v-if="selectedProject.is_private"
-                class="ml-2 align-middle rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em] text-[color:var(--teal)]"
+                class="badge-private"
               >
                 Private
               </span>
             </h2>
           </div>
 
-          <div v-if="contributors.length" class="space-y-2 text-sm text-white/70">
+          <div v-if="contributors.length" class="space-y-2 text-sm text-fg/70">
             <div class="flex flex-wrap gap-2">
               <span
                 v-for="contributor in contributors"
                 :key="contributor.name + contributor.orcid"
-                class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70"
+                class="chip"
               >
                 <span>{{ contributor.name }}</span>
                 <a
@@ -120,62 +119,35 @@
                   target="_blank"
                   rel="noreferrer"
                 >
-                  <img src="/icons/ORCID_iD.svg" alt="ORCID" class="h-4 w-4" />
+                  <img :src="`${baseUrl}icons/ORCID_iD.svg`" alt="ORCID" class="h-4 w-4" />
                 </a>
               </span>
             </div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="card p-4">
             <div class="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p class="text-[10px] uppercase tracking-[0.3em] text-white/50">Total Tags</p>
-                <p class="mt-1 font-display text-4xl text-white sm:text-5xl">{{ totalTags }}</p>
+                <p class="eyebrow">Total Tags</p>
+                <p class="mt-1 font-display text-4xl text-fg sm:text-5xl">{{ totalTags }}</p>
               </div>
             </div>
 
-            <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div class="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                <p class="text-[10px] uppercase tracking-[0.25em] text-white/50">Sensors</p>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <span
-                    v-for="entry in sensorEntries"
-                    :key="entry.key"
-                    class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/70"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      viewBox="0 0 24 24"
-                      class="h-4 w-4"
-                      :style="{ color: entry.color }"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      v-html="entry.icon"
-                    ></svg>
-                    {{ entry.label }}
-                    <span class="text-white">{{ entry.value }}</span>
-                  </span>
-                </div>
-              </div>
-
-              <div class="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                <p class="text-[10px] uppercase tracking-[0.25em] text-white/50">Outputs</p>
-                <div class="mt-2 grid grid-cols-1 gap-2 text-xs">
+            <!-- One box only: sensor and output counts are plain rows, not nested cards. -->
+            <div class="mt-4 grid gap-x-6 gap-y-4 border-t border-fg/10 pt-4 sm:grid-cols-2">
+              <div v-for="group in countGroups" :key="group.title">
+                <p class="eyebrow">{{ group.title }}</p>
+                <dl class="mt-2 divide-y divide-fg/5 text-sm">
                   <div
-                    v-for="entry in trackEntries"
+                    v-for="entry in group.entries"
                     :key="entry.key"
-                    class="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2"
+                    class="flex items-center justify-between gap-3 py-1.5"
                   >
-                    <div
-                      class="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/60"
-                    >
+                    <dt class="flex items-center gap-2 text-fg/70">
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 24 24"
-                        class="h-4 w-4"
+                        class="h-4 w-4 shrink-0"
                         :style="{ color: entry.color }"
                         fill="none"
                         stroke="currentColor"
@@ -185,67 +157,65 @@
                         v-html="entry.icon"
                       ></svg>
                       {{ entry.label }}
-                    </div>
-                    <span class="font-display text-base text-white">{{ entry.value }}</span>
+                    </dt>
+                    <dd class="font-display tabular-nums text-fg">{{ entry.value }}</dd>
                   </div>
-                </div>
+                </dl>
               </div>
             </div>
           </div>
 
           <div
             v-if="selectedProject.description"
-            class="project-description rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70"
+            class="project-description card p-4 text-sm text-fg/70"
           >
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Description</p>
+            <p class="eyebrow">Description</p>
             <div class="mt-2" v-html="selectedProject.description"></div>
           </div>
 
           <div class="flex flex-wrap gap-2">
-            <span
+            <!-- The whole badge links to eBird when the species has an eBird code. -->
+            <component
+              :is="taxon.speciesCode ? 'a' : 'span'"
               v-for="taxon in displayTaxa"
               :key="taxon.key"
-              class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.1em] text-white/70"
+              class="chip"
+              :class="taxon.speciesCode ? 'transition hover:border-fg/30 hover:text-fg' : ''"
+              v-bind="
+                taxon.speciesCode
+                  ? {
+                      href: `https://ebird.org/species/${taxon.speciesCode}`,
+                      target: '_blank',
+                      rel: 'noreferrer',
+                      title: `${taxon.label} on eBird`,
+                    }
+                  : {}
+              "
             >
-              <a
-                v-if="taxon.speciesCode"
-                :href="`https://ebird.org/species/${taxon.speciesCode}`"
-                target="_blank"
-                rel="noreferrer"
-                class="rounded-full bg-white/20 p-1"
-                aria-label="Open eBird species page"
-              >
-                <img src="/ebird.svg" alt="eBird" class="h-3 w-3" />
-              </a>
+              <span v-if="taxon.speciesCode" class="-ml-1.5 rounded-full bg-white p-1">
+                <img :src="`${baseUrl}ebird.svg`" alt="eBird" class="h-3 w-3" />
+              </span>
               <span>{{ taxon.label }}</span>
-            </span>
+            </component>
           </div>
 
-          <div v-if="selectedProject.temporal?.start" class="grid gap-2 text-sm text-white/70">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Timeline</p>
+          <div v-if="selectedProject.temporal?.start" class="grid gap-2 text-sm text-fg/70">
+            <p class="eyebrow">Timeline</p>
             <p>{{ selectedProject.temporal.start }} → {{ selectedProject.temporal.end }}</p>
           </div>
 
-          <div v-if="selectedProject.keywords?.length" class="text-xs text-white/60">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Keywords</p>
-            <span class="mt-2 inline-block">{{ keywordsList }}</span>
-            <span v-if="keywordsOverflow" class="ml-2 text-white/40"
-              >+{{ keywordsOverflow }} more</span
-            >
-          </div>
-
-          <div v-if="relatedIdentifiers.length" class="text-xs text-white/70">
-            <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Related Identifiers</p>
+          <div v-if="relatedIdentifiers.length" class="text-xs text-fg/70">
+            <p class="eyebrow">Related Identifiers</p>
             <ul class="mt-3 space-y-2">
               <li v-for="item in relatedIdentifiers" :key="item.identifier + item.relationType">
-                <span class="text-white/50">{{ item.relationType || "Related" }}: </span>
-                <span class="text-white/50"> </span>
+                <span class="text-fg/50">{{ item.relationType || "Related" }}: </span>
+                <span class="text-fg/50"> </span>
                 <a
                   v-if="item.identifierType === 'doi'"
                   :href="`https://doi.org/${item.identifier}`"
                   target="_blank"
                   rel="noreferrer"
-                  class="text-[color:var(--teal)] hover:text-white"
+                  class="link"
                 >
                   {{ item.identifier }}
                 </a>
@@ -254,7 +224,7 @@
                   :href="item.identifier"
                   target="_blank"
                   rel="noreferrer"
-                  class="text-[color:var(--teal)] hover:text-white"
+                  class="link"
                 >
                   {{ item.identifier }}
                 </a>
@@ -269,7 +239,7 @@
               :href="repositoryUrl"
               target="_blank"
               rel="noreferrer"
-              class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+              class="chip"
             >
               <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
                 <path
@@ -284,22 +254,22 @@
               :href="selectedProject.concept_doi"
               target="_blank"
               rel="noreferrer"
-              class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/70 transition hover:border-white/30 hover:text-white"
+              class="chip"
             >
-              <span class="rounded-full bg-white/20 px-2 py-0.5 text-[9px] text-white/70">DOI</span>
-              <span class="font-semibold">10.5281/zenodo.{{ selectedProject.concept_id }}</span>
+              <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--teal)]">DOI</span>
+              <span>10.5281/zenodo.{{ selectedProject.concept_id }}</span>
             </a>
           </div>
 
           <div
             v-if="citationText"
-            class="rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-white/70"
+            class="card p-4 text-xs text-fg/70"
           >
             <div class="flex items-center justify-between gap-3">
-              <p class="text-[10px] uppercase tracking-[0.2em] text-white/50">Citation</p>
+              <p class="eyebrow">Citation</p>
               <button
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60 transition hover:border-white/30 hover:text-white"
+                class="button-ghost"
                 :disabled="!citationText"
                 @click="copyCitation"
                 aria-label="Copy citation"
@@ -321,22 +291,23 @@
                 <span>{{ citationCopied ? "Copied" : "Copy" }}</span>
               </button>
             </div>
-            <p class="mt-3 text-[11px] text-white/70">{{ citationText }}</p>
+            <p class="mt-3 text-[11px] text-fg/70">{{ citationText }}</p>
           </div>
 
           <div
             v-if="footerMeta.length"
-            class="flex whitespace-nowrap gap-3 overflow-x-auto text-[10px] uppercase tracking-[0.2em] text-white/40"
+            class="flex flex-wrap gap-x-3 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-fg/50"
           >
+            <!-- Wraps between items instead of scrolling sideways in a narrow panel. -->
             <template v-for="(item, index) in footerMeta" :key="item.label">
-              <span v-if="index > 0">·</span>
-              <span>
+              <span v-if="index > 0" aria-hidden="true">·</span>
+              <span class="whitespace-nowrap">
                 <a
                   v-if="item.href"
                   :href="item.href"
                   target="_blank"
                   rel="noreferrer"
-                  class="hover:text-white"
+                  class="hover:text-fg"
                 >
                   {{ item.label }} {{ item.value }}
                 </a>
@@ -348,24 +319,36 @@
       </div>
 
       <div
-        class="relative order-1 h-[60vh] w-full overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--slate)] lg:order-2 lg:h-full"
+        class="relative order-1 h-[60vh] w-full overflow-hidden rounded-xl border border-fg/10 bg-[color:var(--slate)] lg:order-2 lg:h-full"
       >
         <div ref="mapContainer" class="h-full w-full"></div>
         <div
-          class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
+          class="pointer-events-none absolute inset-0 bg-gradient-to-t from-shade/40 via-transparent to-transparent"
         ></div>
+        <MapTips
+          v-if="projectTags.length"
+          ref="mapLegend"
+          title="Map legend"
+          storage-key="geolocator-explorer:project-map-tips-dismissed:v1"
+          panel-id="project-map-tips"
+          position-class="bottom-3 right-3"
+        >
+          <li>Each line is one bird's track, with one color per bird.</li>
+          <li>Circles are the places where it stopped; a larger circle means a longer stay.</li>
+          <li>Hover a track to see the bird; click it to keep its details open.</li>
+        </MapTips>
         <div
           v-if="embargoNotice"
-          class="absolute inset-0 flex items-center justify-center bg-black/60 text-center"
+          class="absolute inset-0 flex items-center justify-center bg-shade/60 text-center"
         >
-          <div class="rounded-2xl border border-white/10 bg-black/50 px-6 py-4">
-            <p class="text-xs uppercase tracking-[0.3em] text-white/50">Project Data</p>
-            <p class="mt-2 font-display text-lg text-white">
+          <div class="rounded-2xl border border-fg/10 bg-[color:var(--panel)] px-6 py-4 backdrop-blur">
+            <p class="eyebrow">Project Data</p>
+            <p class="mt-2 font-display text-lg text-fg">
               Under Embargo until {{ embargoNotice }}
             </p>
             <button
               type="button"
-              class="mt-4 inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-white/45 transition hover:text-white"
+              class="mt-4 inline-flex items-center gap-1 whitespace-nowrap text-[10px] uppercase tracking-[0.2em] text-fg/50 transition hover:text-fg"
               @click="openPrivateModal(selectedProject?.record_id || '')"
             >
               <span class="text-[color:var(--teal)]">+</span>
@@ -395,6 +378,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { basemapStyle, mapFog, useTheme } from "../lib/theme";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
 import {
@@ -405,6 +389,7 @@ import {
   ComboboxOptions,
 } from "@headlessui/vue";
 import PrivateZenodoModal from "../components/PrivateZenodoModal.vue";
+import MapTips from "../components/MapTips.vue";
 import { loadProjectData, loadProjects } from "../lib/data";
 import { loadZenodoDatapackage } from "../lib/datapackageProcessor";
 import {
@@ -418,7 +403,8 @@ import { normalizeZenodoId } from "../lib/privateData";
 import {
   colorForIndex,
   formatShortDate,
-  normalizeKeywords,
+  personDisplayName,
+  personFamilyName,
   projectSlug,
   sexSymbol,
 } from "../lib/format";
@@ -426,13 +412,15 @@ import { MAPBOX_TOKEN } from "../lib/config";
 import { buildTagPopupHtml } from "../lib/popup";
 import { createSidePopup } from "../lib/mapbox";
 
+const { theme } = useTheme();
 const route = useRoute();
 const router = useRouter();
 const mapContainer = ref(null);
 const projects = ref([]);
 const selectedId = ref("");
 const searchQuery = ref("");
-const isSearching = ref(false);
+const projectMenuButton = ref(null);
+const mapLegend = ref(null);
 const citationCopied = ref(false);
 const isPrivateModalOpen = ref(false);
 const zenodoRecordInput = ref("");
@@ -450,13 +438,9 @@ let projectDataRequest = 0;
 const emptyProjectData = () => ({ tags: [], known_locations: [] });
 const projectData = ref(emptyProjectData());
 let hoverPopup;
-let locationPopup;
 let hoverTagId = null;
 let pinnedTagId = null;
 let hoverHandlersBound = false;
-let locationHandlersBound = false;
-let stapHandlersBound = false;
-let hoverShowTimer;
 let hoverHideTimer;
 let tagInfoMap = new Map();
 
@@ -512,8 +496,6 @@ const projectDisplayValue = (value) => {
   return displayProjectTitle(project?.title);
 };
 
-const comboboxDisplayValue = () =>
-  isSearching.value ? searchQuery.value : projectDisplayValue(selectedId.value);
 
 const projectTaxaNames = (project) => {
   const taxa = project.taxonomic || [];
@@ -527,11 +509,10 @@ const projectTaxaNames = (project) => {
     .filter(Boolean);
 };
 
+// Both "Family, Given" and "Given Family", so either order finds the person.
 const projectContributorNames = (project) =>
   (project.contributors || [])
-    .map(
-      (person) => person.title || [person.givenName, person.familyName].filter(Boolean).join(" "),
-    )
+    .flatMap((person) => [person.title, personDisplayName(person)])
     .filter(Boolean);
 
 const displayProjectTitle = (title) =>
@@ -546,28 +527,18 @@ const projectSearchText = (project) => {
   return `${title} ${taxa} ${contributors}`.toLowerCase();
 };
 
+// Species · number of tags · first author ("Wong et al."), for the project list.
 const projectSubtitle = (project) => {
   const taxa = projectTaxaNames(project);
-  const contributors = projectContributorNames(project);
-  const parts = [];
-  if (project.is_private) {
-    parts.push("Private");
-  }
-  if (taxa.length) {
-    const taxaPreview = taxa.slice(0, 2).join(" · ");
-    const suffix = taxa.length > 2 ? ` +${taxa.length - 2}` : "";
-    parts.push(`${taxaPreview}${suffix}`);
-  }
-  if (contributors.length) {
-    const peoplePreview = contributors.slice(0, 2).join(", ");
-    const suffix = contributors.length > 2 ? ` +${contributors.length - 2}` : "";
-    parts.push(`${peoplePreview}${suffix}`);
-  }
-  const keywords = normalizeKeywords(project.keywords);
-  if (keywords.length) {
-    parts.push(keywords.slice(0, 2).join(", "));
-  }
-  return parts.join(" • ");
+  const people = project.contributors || [];
+  const tagCount = Number(project.numberTags?.tags);
+  return [
+    taxa.length ? taxa.slice(0, 2).join(", ") + (taxa.length > 2 ? ` +${taxa.length - 2}` : "") : "",
+    tagCount > 0 ? `${tagCount} ${tagCount === 1 ? "tag" : "tags"}` : "",
+    people.length ? personFamilyName(people[0]) + (people.length > 1 ? " et al." : "") : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 };
 
 const filteredProjects = computed(() => {
@@ -595,9 +566,6 @@ const displayTaxa = computed(() => {
     .filter((entry) => entry.label);
 });
 
-const normalizedKeywords = computed(() => normalizeKeywords(selectedProject.value?.keywords));
-const keywordsList = computed(() => normalizedKeywords.value.slice(0, 6).join(", "));
-const keywordsOverflow = computed(() => Math.max(normalizedKeywords.value.length - 6, 0));
 
 const hasProjectMapData = computed(() => {
   const flag = selectedProject.value?.has_project_data;
@@ -616,9 +584,6 @@ const footerMeta = computed(() => {
   const meta = [];
   if (selectedProject.value?.created) {
     meta.push({ label: "Created", value: formatShortDate(selectedProject.value.created) });
-  }
-  if (selectedProject.value?.version) {
-    meta.push({ label: "Version", value: selectedProject.value.version });
   }
   licenseItems.value.forEach((license) => {
     if (license.name) {
@@ -739,6 +704,13 @@ const trackEntries = computed(() => {
     .filter((entry) => entry.value > 0);
 });
 
+const countGroups = computed(() =>
+  [
+    { title: "Sensors", entries: sensorEntries.value },
+    { title: "Outputs", entries: trackEntries.value },
+  ].filter((group) => group.entries.length),
+);
+
 const citationText = computed(() => {
   const raw = selectedProject.value?.bibliographicCitation || "";
   return String(raw || "").trim();
@@ -773,8 +745,7 @@ const licenseItems = computed(() =>
 
 const contributors = computed(() =>
   (selectedProject.value?.contributors || []).map((person) => ({
-    name:
-      person.title || [person.givenName, person.familyName].filter(Boolean).join(" ") || "Unknown",
+    name: personDisplayName(person) || "Unknown",
     orcid: person.path || "",
     role: person.roles || "",
     organization: person.organization || "",
@@ -810,7 +781,6 @@ const repositoryLabel = computed(() => {
   }
 });
 const projectTags = computed(() => projectData.value.tags);
-const projectKnownLocations = computed(() => projectData.value.known_locations);
 const projectTagIds = computed(() => projectTags.value.map((entry) => entry.tag_id));
 
 const updateProjectData = async () => {
@@ -949,9 +919,24 @@ const removePrivateRecord = async (id) => {
   );
 };
 
-const openProjectPicker = () => {
-  isSearching.value = true;
-  searchQuery.value = "";
+// Open the full list when the field is clicked while closed (Headless UI only opens
+// on typing or on its button, so the click is passed to the button), with the current
+// name selected so typing replaces it. Enter with no highlighted option (it was
+// filtered away) picks the first match. Clicking elsewhere only closes the list:
+// Headless UI would pick the highlighted option on blur, so the input's capture-phase
+// blur listener stops its handler; its outside-click handling still closes the list.
+const openOptions = (open, button, event) => {
+  if (!open) {
+    searchQuery.value = "";
+    button?.$el?.click();
+    event?.target?.select();
+  }
+};
+
+const pickFirstMatch = (event) => {
+  if (!event.target.getAttribute("aria-activedescendant") && filteredProjects.value.length) {
+    updateProject(projectKey(filteredProjects.value[0]));
+  }
 };
 
 const resolveProjectId = (value) => {
@@ -972,15 +957,7 @@ function clearMapData() {
   if (stapsSource) {
     stapsSource.setData(emptyCollection);
   }
-  const locationSource = mapInstance.getSource("project-locations");
-  if (locationSource) {
-    locationSource.setData(emptyCollection);
-  }
   clearTagHover({ force: true });
-  if (locationPopup) {
-    locationPopup.remove();
-    locationPopup = null;
-  }
   tagInfoMap = new Map();
 }
 
@@ -1050,25 +1027,36 @@ const clearTagHover = ({ force = false } = {}) => {
   }
 };
 
-const scheduleHoverShow = (tagId, lngLat, { lock = false } = {}) => {
-  if (hoverHideTimer) {
-    clearTimeout(hoverHideTimer);
-    hoverHideTimer = null;
+// Width of the open map legend (0 when closed or hidden on small screens), at most 40%
+// of the map so the tracks keep enough room.
+const legendWidth = () => {
+  const el = mapLegend.value?.isOpen ? mapLegend.value.$el : null;
+  return Math.min(el?.offsetWidth ?? 0, mapInstance.getContainer().clientWidth * 0.4);
+};
+
+// Pixels around the pointer that still count as on a track or stopover circle.
+const TAG_HIT_PADDING = 6;
+
+// Bird (tagId) under the pointer: stopover circles first (drawn on top), then the
+// invisible wide copy of the tracks, so thin lines are easy to hover and click.
+const tagIdAtPoint = (point) => {
+  const layers = ["project-staps-circles", "project-paths-hit"].filter((id) =>
+    mapInstance.getLayer(id),
+  );
+  if (!layers.length) {
+    return null;
   }
-  if (hoverShowTimer) {
-    clearTimeout(hoverShowTimer);
-  }
-  hoverShowTimer = setTimeout(() => {
-    setTagHover(tagId, lngLat, { lock });
-    hoverShowTimer = null;
-  }, 80);
+  const hit = mapInstance.queryRenderedFeatures(
+    [
+      [point.x - TAG_HIT_PADDING, point.y - TAG_HIT_PADDING],
+      [point.x + TAG_HIT_PADDING, point.y + TAG_HIT_PADDING],
+    ],
+    { layers },
+  );
+  return hit[0]?.properties?.tagId ?? null;
 };
 
 const scheduleHoverHide = () => {
-  if (hoverShowTimer) {
-    clearTimeout(hoverShowTimer);
-    hoverShowTimer = null;
-  }
   if (hoverHideTimer) {
     clearTimeout(hoverHideTimer);
   }
@@ -1078,7 +1066,7 @@ const scheduleHoverHide = () => {
   }, 120);
 };
 
-const updateMap = () => {
+const updateMap = ({ fit = true } = {}) => {
   if (!mapInstance || !mapReady) {
     return;
   }
@@ -1095,7 +1083,7 @@ const updateMap = () => {
   const colorMap = new Map();
   projectTags.value.forEach((tag, idx) => {
     const tagId = tag.tag_id;
-    const color = colorForIndex(idx, projectTags.value.length);
+    const color = colorForIndex(idx, projectTags.value.length, theme.value);
     colorMap.set(tagId, color);
     const sortedStaps = [...tag.staps].sort(
       (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
@@ -1147,6 +1135,16 @@ const updateMap = () => {
         "line-opacity": 0.6,
       },
     });
+    // Invisible wide copy of the tracks, only used to find the track under the pointer.
+    mapInstance.addLayer({
+      id: "project-paths-hit",
+      type: "line",
+      source: "project-paths",
+      paint: {
+        "line-color": "rgba(0,0,0,0)",
+        "line-width": 16,
+      },
+    });
     mapInstance.addLayer({
       id: "project-paths-highlight",
       type: "line",
@@ -1160,50 +1158,53 @@ const updateMap = () => {
     });
   }
 
-  if (features.length && Number.isFinite(minLon)) {
+  if (fit && features.length && Number.isFinite(minLon)) {
     mapInstance.fitBounds(
       [
         [minLon, minLat],
         [maxLon, maxLat],
       ],
       {
-        padding: 60,
+        // Keep the tracks clear of the open legend in the bottom-right corner.
+        padding: { top: 60, bottom: 60, left: 60, right: 60 + legendWidth() },
         duration: 800,
       },
     );
   }
 
-  if (!hoverHandlersBound && mapInstance.getLayer("project-paths-line")) {
+  // One map-wide set of handlers, so a stopover circle behaves exactly like its track.
+  if (!hoverHandlersBound) {
     hoverHandlersBound = true;
-    mapInstance.on("mouseenter", "project-paths-line", (event) => {
-      mapInstance.getCanvas().style.cursor = "pointer";
-      const tagId = event.features[0].properties?.tagId;
-      if (!pinnedTagId) {
-        scheduleHoverShow(tagId, event.lngLat);
+    mapInstance.on("mousemove", (event) => {
+      const tagId = tagIdAtPoint(event.point);
+      mapInstance.getCanvas().style.cursor = tagId ? "pointer" : "";
+      if (pinnedTagId) {
+        return;
       }
+      if (!tagId) {
+        if (hoverTagId) {
+          scheduleHoverHide();
+        }
+        return;
+      }
+      if (hoverHideTimer) {
+        clearTimeout(hoverHideTimer);
+        hoverHideTimer = null;
+      }
+      setTagHover(tagId, event.lngLat);
     });
 
-    mapInstance.on("mousemove", "project-paths-line", (event) => {
-      if (hoverTagId && hoverPopup && !pinnedTagId) {
-        hoverPopup.setLngLat(event.lngLat);
-      }
-    });
-
-    mapInstance.on("mouseleave", "project-paths-line", () => {
+    mapInstance.on("mouseout", () => {
       mapInstance.getCanvas().style.cursor = "";
       scheduleHoverHide();
     });
 
-    mapInstance.on("click", "project-paths-line", (event) => {
-      const tagId = event.features[0].properties?.tagId;
-      setTagHover(tagId, event.lngLat, { lock: true });
-    });
-
+    // A click pins the bird (its popup stays, with its link); a click elsewhere unpins.
     mapInstance.on("click", (event) => {
-      const hit = mapInstance.queryRenderedFeatures(event.point, {
-        layers: ["project-paths-line"],
-      });
-      if (!hit.length && pinnedTagId) {
+      const tagId = tagIdAtPoint(event.point);
+      if (tagId) {
+        setTagHover(tagId, event.lngLat, { lock: true });
+      } else if (pinnedTagId) {
         clearTagHover({ force: true });
       }
     });
@@ -1211,95 +1212,6 @@ const updateMap = () => {
 
   if (pinnedTagId && !projectTagIds.value.includes(pinnedTagId)) {
     clearTagHover({ force: true });
-  }
-
-  const locationFeatures = projectKnownLocations.value.map((loc) => ({
-    type: "Feature",
-    properties: {
-      kind: loc.kind || "known",
-      name: loc.location_name || "",
-    },
-    geometry: {
-      type: "Point",
-      coordinates: [loc.longitude, loc.latitude],
-    },
-  }));
-
-  const locationCollection = {
-    type: "FeatureCollection",
-    features: locationFeatures,
-  };
-
-  const locationSource = mapInstance.getSource("project-locations");
-  if (locationSource) {
-    locationSource.setData(locationCollection);
-  } else {
-    mapInstance.addSource("project-locations", {
-      type: "geojson",
-      data: locationCollection,
-    });
-    mapInstance.addLayer({
-      id: "project-locations-circles",
-      type: "circle",
-      source: "project-locations",
-      paint: {
-        "circle-color": ["case", ["==", ["get", "kind"], "equipment"], "#f8fafc", "#cbd5f5"],
-        "circle-radius": ["case", ["==", ["get", "kind"], "equipment"], 8, 6],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "rgba(0,0,0,0.7)",
-        "circle-opacity": 0.95,
-      },
-    });
-  }
-
-  if (!locationHandlersBound && mapInstance.getLayer("project-locations-circles")) {
-    locationHandlersBound = true;
-    mapInstance.on("mousemove", "project-locations-circles", (event) => {
-      mapInstance.getCanvas().style.cursor = "pointer";
-      const name = event.features[0].properties?.name || "Location";
-      if (!locationPopup) {
-        locationPopup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
-      }
-      locationPopup
-        .setLngLat(event.lngLat)
-        .setHTML(`<div class="map-tooltip"><p class="map-tooltip__meta">${name}</p></div>`)
-        .addTo(mapInstance);
-    });
-
-    mapInstance.on("mouseleave", "project-locations-circles", () => {
-      mapInstance.getCanvas().style.cursor = "";
-      if (locationPopup) {
-        locationPopup.remove();
-        locationPopup = null;
-      }
-    });
-  }
-
-  if (!stapHandlersBound && mapInstance.getLayer("project-staps-circles")) {
-    stapHandlersBound = true;
-    mapInstance.on("mouseenter", "project-staps-circles", (event) => {
-      mapInstance.getCanvas().style.cursor = "pointer";
-      const tagId = event.features[0].properties?.tagId;
-      if (!pinnedTagId) {
-        scheduleHoverShow(tagId, event.lngLat);
-      }
-    });
-
-    mapInstance.on("mousemove", "project-staps-circles", (event) => {
-      if (hoverTagId && hoverPopup && !pinnedTagId) {
-        hoverPopup.setLngLat(event.lngLat);
-      }
-    });
-
-    mapInstance.on("mouseleave", "project-staps-circles", () => {
-      mapInstance.getCanvas().style.cursor = "";
-      scheduleHoverHide();
-    });
-
-    mapInstance.on("click", "project-staps-circles", (event) => {
-      const tagId = event.features[0].properties?.tagId;
-      setTagHover(tagId, event.lngLat, { lock: true });
-    });
   }
 
   const staps = projectTags.value.flatMap((tag) =>
@@ -1371,7 +1283,6 @@ const updateProject = async (rawId) => {
   router.replace({ name: "project", params: { conceptId: projectSlug(resolvedId) } });
   await updateProjectData();
   searchQuery.value = "";
-  isSearching.value = false;
 };
 
 watch(
@@ -1386,15 +1297,31 @@ watch(
   },
 );
 
+// Switching basemap drops our sources and layers; rebuild them without moving the camera.
+watch(theme, (value) => {
+  if (!mapInstance) {
+    return;
+  }
+  clearTagHover({ force: true });
+  if (mapReady) {
+    mapInstance.once("style.load", () => updateMap({ fit: false }));
+  }
+  mapInstance.setStyle(basemapStyle(value));
+});
+
 onMounted(async () => {
   mapboxgl.accessToken = MAPBOX_TOKEN;
   mapInstance = new mapboxgl.Map({
     container: mapContainer.value,
-    style: "mapbox://styles/mapbox/dark-v11",
+    style: basemapStyle(theme.value),
     center: [5, 20],
     zoom: 1.4,
     pitch: 0,
     bearing: 0,
+  });
+
+  mapInstance.on("style.load", () => {
+    mapInstance.setFog(mapFog(theme.value));
   });
 
   mapInstance.once("load", () => {
@@ -1427,13 +1354,6 @@ onBeforeUnmount(() => {
   }
   if (hoverPopup) {
     hoverPopup.remove();
-  }
-  if (locationPopup) {
-    locationPopup.remove();
-  }
-  if (hoverShowTimer) {
-    clearTimeout(hoverShowTimer);
-    hoverShowTimer = null;
   }
   if (hoverHideTimer) {
     clearTimeout(hoverHideTimer);

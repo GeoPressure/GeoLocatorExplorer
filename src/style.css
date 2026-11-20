@@ -1,7 +1,21 @@
 @import "tailwindcss";
 @reference "tailwindcss";
 
-:root {
+/*
+ * Theme tokens. Every color in the UI should come from these variables (or the
+ * Tailwind colors `fg` and `shade` defined below), never from hardcoded
+ * white/black, so both themes stay in sync.
+ *
+ *   --ink    page background          --slate  raised surface (menus, map frame)
+ *   --cream  main text               --mist   secondary text
+ *   --fg     foreground for tints     -> text-fg/70, border-fg/10, bg-fg/5
+ *   --shade  background for overlays -> bg-shade/40 (dark glass / light glass)
+ *
+ * The theme is set by `data-theme` on <html> (see index.html and src/lib/theme.js).
+ */
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
   --ink: #05070b;
   --night: #0c111b;
   --slate: #141c2a;
@@ -10,6 +24,38 @@
   --teal: #56f0c4;
   --ember: #f5b470;
   --accent: #7dd3fc;
+  --on-teal: #05070b;
+  --danger: #fca5a5;
+  --fg: #ffffff;
+  --shade: #000000;
+  --panel: rgba(12, 17, 27, 0.8);
+  --popup: rgba(12, 17, 27, 0.96);
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ink: #f3f1ec;
+  --night: #ffffff;
+  --slate: #ffffff;
+  --mist: #5b6473;
+  --cream: #141a24;
+  --teal: #0a7d5e;
+  --ember: #b45309;
+  --accent: #0369a1;
+  --on-teal: #ffffff;
+  --danger: #b91c1c;
+  --fg: #0b111c;
+  --shade: #ffffff;
+  --panel: rgba(255, 255, 255, 0.86);
+  --popup: rgba(255, 255, 255, 0.97);
+  --shadow: rgba(15, 23, 42, 0.14);
+}
+
+/* `inline` makes utilities reference the variables directly, so they follow the theme. */
+@theme inline {
+  --color-fg: var(--fg);
+  --color-shade: var(--shade);
 }
 
 body {
@@ -20,7 +66,7 @@ body {
   font-family: "Sora", "IBM Plex Sans", "SF Pro Text", sans-serif;
   background: var(--ink);
   color: var(--cream);
-  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(12, 17, 27, 0.8);
+  scrollbar-color: color-mix(in srgb, var(--fg) 20%, transparent) var(--ink);
   scrollbar-width: thin;
 }
 
@@ -36,17 +82,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(12, 17, 27, 0.8);
+  background: var(--ink);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
   border-radius: 999px;
-  border: 2px solid rgba(12, 17, 27, 0.8);
+  border: 2px solid var(--ink);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: color-mix(in srgb, var(--fg) 35%, transparent);
 }
 
 .app-root {
@@ -67,10 +113,17 @@ body {
   padding: 0 12px;
   transform: translateX(-50%);
   border-radius: 12px;
-  background: rgba(5, 7, 11, 0.85);
+  background: color-mix(in srgb, var(--ink) 85%, transparent);
   color: var(--mist);
   font-size: 12px;
   white-space: nowrap;
+}
+
+/* On phones these links live at the bottom of the menu instead. */
+@media (max-width: 767px) {
+  .site-credits {
+    display: none;
+  }
 }
 
 .site-credits a {
@@ -83,7 +136,7 @@ body {
 }
 
 .site-credits a:hover {
-  color: white;
+  color: var(--cream);
 }
 
 .site-credits a:focus-visible {
@@ -110,36 +163,102 @@ body {
 
 @layer components {
   .nav-pill {
-    @apply rounded-full border border-white/10 bg-[rgba(12,17,27,0.8)] px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70 transition;
+    @apply rounded-full border border-fg/10 bg-[color:var(--panel)] px-4 py-2 text-xs uppercase tracking-[0.2em] text-fg/70 transition;
   }
   .nav-pill:hover {
-    @apply border-white/30 text-white;
+    @apply border-fg/30 text-fg;
   }
   .nav-pill-active {
-    @apply border-white/60 bg-white/10 text-white;
+    @apply border-fg/60 bg-fg/10 text-fg;
   }
   .panel {
-    @apply rounded-2xl border border-white/10 bg-[rgba(12,17,27,0.8)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur;
+    @apply rounded-2xl border border-fg/10 bg-[color:var(--panel)] p-6 shadow-[0_20px_60px_var(--shadow)] backdrop-blur;
   }
   .panel-title {
-    @apply text-lg uppercase tracking-[0.2em] text-white/80;
+    @apply text-lg uppercase tracking-[0.2em] text-fg/80;
     font-family: "Space Grotesk", "Sora", "IBM Plex Sans", sans-serif;
     letter-spacing: -0.01em;
   }
-  .stat-pill {
-    @apply rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-white/60;
-  }
   .button-primary {
-    @apply rounded-full bg-[color:var(--teal)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-black transition;
+    @apply rounded-full bg-[color:var(--teal)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--on-teal)] transition;
   }
+  .button-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+  }
+
+  /*
+   * Shared building blocks. Reuse these instead of re-typing the utility strings,
+   * so spacing, sizes and contrast stay the same on every page.
+   */
+
+  /* Small uppercase label above a value or section ("TIMELINE", "SENSORS"). */
+  .eyebrow {
+    @apply text-[10px] uppercase tracking-[0.2em] text-fg/50;
+  }
+  /* Rounded tag for names, species, links ("Wong, Joanna", "jobzwong/CurNis"). */
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-fg/10 bg-fg/5 px-3 py-1 text-xs text-fg/70;
+  }
+  a.chip,
+  button.chip {
+    @apply transition hover:border-fg/30 hover:text-fg;
+  }
+  /* Small uppercase outline button ("COPY", "OPEN", "CLOSE"). */
   .button-ghost {
-    @apply rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70 transition;
+    @apply inline-flex items-center gap-1 rounded-full border border-fg/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-fg/60 transition hover:border-fg/30 hover:text-fg;
+  }
+  /* Round icon-only button (theme toggle, help, close). */
+  .icon-button {
+    @apply inline-flex shrink-0 items-center justify-center rounded-full border border-fg/10 bg-[color:var(--panel)] text-fg/70 backdrop-blur transition hover:border-fg/30 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--teal)];
+  }
+  /* "PRIVATE" marker next to a project or tag title. */
+  .badge-private {
+    @apply ml-2 inline-block rounded-full border border-[color:var(--teal)]/30 px-2 py-0.5 align-middle text-[9px] uppercase tracking-[0.2em] text-[color:var(--teal)];
+  }
+  /* Inset box inside a panel. */
+  .card {
+    @apply rounded-xl border border-fg/10 bg-fg/5;
+  }
+  /* Text input and combobox field. */
+  .field {
+    @apply w-full rounded-xl border border-fg/10 bg-shade/40 px-4 py-3 text-sm text-fg transition placeholder:text-fg/50 hover:border-fg/20 focus:border-[color:var(--teal)]/60 focus:outline-none;
+  }
+  /* Dropdown list under a combobox. */
+  .menu {
+    @apply absolute mt-2 w-full overflow-auto rounded-xl border border-fg/10 bg-[color:var(--slate)] p-2 shadow-[0_20px_50px_var(--shadow)];
+  }
+  /* Inline text link. */
+  .link {
+    @apply text-[color:var(--teal)] underline decoration-[color:var(--teal)]/30 underline-offset-4 transition hover:decoration-[color:var(--teal)];
   }
 }
 
 .mapboxgl-ctrl-logo,
 .mapboxgl-ctrl-attrib {
   display: none !important;
+}
+
+/* Map zoom / compass / fullscreen buttons match the panels in both themes. */
+.mapboxgl-ctrl-group:not(:empty) {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--fg) 10%, transparent);
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.mapboxgl-ctrl-group button + button {
+  border-top-color: color-mix(in srgb, var(--fg) 10%, transparent);
+}
+
+.mapboxgl-ctrl-group button:not(:disabled):hover {
+  background-color: color-mix(in srgb, var(--fg) 8%, transparent);
+}
+
+/* Mapbox draws its icons dark; flip them for the dark theme (hue-rotate keeps the compass red). */
+:root[data-theme="dark"] .mapboxgl-ctrl-group .mapboxgl-ctrl-icon {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 /* Clearer expand / collapse arrows for the map fullscreen toggle. */
@@ -160,16 +279,28 @@ body {
 
 .mapboxgl-popup-content {
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(12, 17, 27, 0.96);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-  min-width: 300px;
-  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  background: var(--popup);
+  box-shadow: 0 24px 60px var(--shadow);
+  min-width: 180px;
+  padding: 10px 14px;
   color: var(--cream);
 }
 
-.mapboxgl-popup-tip {
-  border-top-color: rgba(12, 17, 27, 0.92) !important;
+.mapboxgl-popup-anchor-top .mapboxgl-popup-tip {
+  border-bottom-color: var(--popup) !important;
+}
+
+.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  border-top-color: var(--popup) !important;
+}
+
+.mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
+  border-right-color: var(--popup) !important;
+}
+
+.mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
+  border-left-color: var(--popup) !important;
 }
 
 .pressure-slider {
@@ -181,7 +312,7 @@ body {
 .pressure-slider::-webkit-slider-runnable-track {
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
 }
 
 .pressure-slider::-webkit-slider-thumb {
@@ -190,14 +321,14 @@ body {
   width: 22px;
   border-radius: 999px;
   background: #ef4444;
-  border: 2px solid rgba(0, 0, 0, 0.6);
+  border: 2px solid color-mix(in srgb, var(--shade) 60%, transparent);
   margin-top: -7px;
 }
 
 .pressure-slider::-moz-range-track {
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--fg) 20%, transparent);
 }
 
 .pressure-slider::-moz-range-thumb {
@@ -205,7 +336,7 @@ body {
   width: 22px;
   border-radius: 999px;
   background: #ef4444;
-  border: 2px solid rgba(0, 0, 0, 0.6);
+  border: 2px solid color-mix(in srgb, var(--shade) 60%, transparent);
 }
 
 .project-description p {

@@ -1,21 +1,21 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-shade/70 px-4 backdrop-blur"
     @pointerdown="startedOnBackdrop = $event.target === $event.currentTarget"
     @click.self="startedOnBackdrop && closeModal()"
   >
     <div
-      class="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[color:var(--slate)] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.6)]"
+      class="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-fg/10 bg-[color:var(--slate)] p-5 shadow-[0_28px_90px_var(--shadow)]"
     >
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="text-[10px] uppercase tracking-[0.28em] text-white/50">Private Zenodo</p>
-          <h2 class="mt-1 font-display text-2xl text-white">Load private datapackage</h2>
+          <p class="eyebrow">Private Zenodo</p>
+          <h2 class="mt-1 font-display text-2xl text-fg">Load private datapackage</h2>
         </div>
         <button
           type="button"
-          class="rounded-full border border-white/10 px-3 py-1 text-xs text-white/60 transition hover:border-white/30 hover:text-white"
+          class="button-ghost"
           @click="closeModal"
         >
           Close
@@ -24,37 +24,37 @@
 
       <form class="mt-5 grid gap-3" @submit.prevent="$emit('load')">
         <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 text-xs">
-          <p class="text-white/60">Paste a share link from Zenodo’s Share → Links.</p>
+          <p class="text-fg/60">Paste a share link from Zenodo’s Share → Links.</p>
           <div class="ml-auto flex flex-wrap gap-3 text-[color:var(--teal)]">
             <a
               v-if="selectedRecordId"
               :href="`https://zenodo.org/records/${selectedRecordId}`"
               target="_blank"
               rel="noreferrer"
-              class="transition hover:text-white"
+              class="link"
             >Selected record ↗</a>
             <a
               href="https://zenodo.org/me/uploads?q=GeoLocator%20Data%20Package%3A&f=shared_with_me%3Afalse&l=list&p=1&s=10&sort=bestmatch"
               target="_blank"
               rel="noreferrer"
-              class="transition hover:text-white"
+              class="link"
             >My records ↗</a>
             <a
               href="https://zenodo.org/communities/geolocator-dp/records?q=&amp;f=access_status%3Aembargoed&amp;l=list&amp;p=1&amp;s=10&amp;sort=newest"
               target="_blank"
               rel="noreferrer"
-              class="transition hover:text-white"
+              class="link"
             >All records ↗</a>
           </div>
         </div>
-        <div class="grid gap-2 text-xs uppercase tracking-[0.2em] text-white/50">
+        <div class="grid gap-2 text-xs uppercase tracking-[0.2em] text-fg/50">
           <label for="zenodo-record">Zenodo share link, DOI or id</label>
           <div class="relative">
             <input
               id="zenodo-record"
               :value="recordInput"
               name="zenodo_record"
-              class="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-4 pr-12 text-sm normal-case tracking-normal text-white placeholder:text-white/35"
+              class="field pr-12 normal-case tracking-normal"
               placeholder="https://zenodo.org/records/1234567?token=…"
               autocomplete="off"
               autocapitalize="off"
@@ -68,7 +68,7 @@
               rel="noreferrer"
               aria-label="Open entered record on Zenodo"
               title="Open on Zenodo"
-              class="absolute inset-y-0 right-0 flex items-center px-4 text-[color:var(--teal)] transition hover:text-white"
+              class="absolute inset-y-0 right-0 flex items-center px-4 text-[color:var(--teal)] transition hover:text-fg"
             >
               <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                 <path d="M14 5h5v5M10 14 19 5M19 14v5H5V5h5" stroke-linecap="round" stroke-linejoin="round" />
@@ -77,14 +77,14 @@
           </div>
         </div>
 
-        <label v-if="showTokenInput" class="grid gap-2 text-xs uppercase tracking-[0.2em] text-white/50">
+        <label v-if="showTokenInput" class="grid gap-2 text-xs uppercase tracking-[0.2em] text-fg/50">
           <span class="flex items-center justify-between gap-3">
             <span>Personal access token (optional)</span>
             <a
               href="https://zenodo.org/account/settings/applications/"
               target="_blank"
               rel="noreferrer"
-              class="inline-flex items-center gap-1 text-[10px] text-[color:var(--teal)] transition hover:text-white"
+              class="inline-flex items-center gap-1 text-[10px] text-[color:var(--teal)] transition hover:text-fg"
             >
               <span>Get Token</span>
               <svg
@@ -104,7 +104,7 @@
             :value="tokenInput"
             type="password"
             name="zenodo_token"
-            class="rounded-xl border border-white/10 bg-black/40 px-4 py-3 text-sm normal-case tracking-normal text-white placeholder:text-white/35"
+            class="field normal-case tracking-normal"
             placeholder="Personal access token"
             autocomplete="off"
             autocapitalize="off"
@@ -123,18 +123,18 @@
           </button>
         </div>
 
-        <p v-if="status" class="inline-flex items-center gap-2 text-sm text-white/70">
+        <p v-if="status" class="inline-flex items-center gap-2 text-sm text-fg/70">
           <span v-if="isProcessing" class="status-spinner" aria-hidden="true"></span>
           <span>{{ status }}</span>
         </p>
-        <p v-if="error" class="text-sm text-red-300">{{ error }}</p>
+        <p v-if="error" class="text-sm text-[color:var(--danger)]">{{ error }}</p>
       </form>
 
       <div class="mt-6">
-        <p class="text-[10px] uppercase tracking-[0.28em] text-white/50">Cached Records</p>
+        <p class="eyebrow">Cached Records</p>
         <div
           v-if="!records.length"
-          class="mt-3 rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/50"
+          class="card mt-3 p-4 text-sm text-fg/50"
         >
           No private datapackages are stored in this browser.
         </div>
@@ -142,25 +142,25 @@
           <div
             v-for="record in records"
             :key="record.id"
-            class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/30 px-4 py-3"
+            class="card flex flex-wrap items-center justify-between gap-3 px-4 py-3"
           >
             <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-white">{{ formatTitle(record.title) }}</p>
-              <p class="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/45">
+              <p class="truncate text-sm font-medium text-fg">{{ formatTitle(record.title) }}</p>
+              <p class="eyebrow mt-1">
                 {{ record.tagCount }} tags · Zenodo {{ record.recordId || "record" }}
               </p>
             </div>
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                class="rounded-full border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/60 transition hover:border-white/30 hover:text-white"
+                class="button-ghost"
                 @click="$emit('select', record.id)"
               >
                 Open
               </button>
               <button
                 type="button"
-                class="rounded-full border border-red-300/20 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-red-200/80 transition hover:border-red-200/60 hover:text-red-100"
+                class="button-ghost border-[color:var(--danger)]/30 text-[color:var(--danger)] hover:border-[color:var(--danger)]/70 hover:text-[color:var(--danger)]"
                 @click="$emit('remove', record.id)"
               >
                 Remove
@@ -221,7 +221,7 @@ const formatTitle = (title) => props.formatTitle(title);
 .status-spinner {
   width: 0.9rem;
   height: 0.9rem;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid color-mix(in srgb, var(--fg) 20%, transparent);
   border-top-color: var(--teal);
   border-radius: 999px;
   animation: status-spin 0.75s linear infinite;

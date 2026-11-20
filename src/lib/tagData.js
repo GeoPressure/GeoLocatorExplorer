@@ -210,6 +210,10 @@ export const normalizePressureData = (raw) => {
         vectors[key] = raw[key];
       }
     });
+    // Compact format written by scripts/process_data.py: start time + minute steps.
+    if (!vectors.datetime && raw.t0 && Array.isArray(raw.dt_min)) {
+      vectors.datetime = expandMinuteSteps(raw.t0, raw.dt_min);
+    }
   }
 
   const datetimeKey = vectors.datetime ? "datetime" : vectors.t ? "t" : null;
@@ -267,7 +271,91 @@ export const normalizePressureData = (raw) => {
     altitude: trimmed(altitude),
     values,
     stap_id: trimmed(stapId),
+    twilight: normalizeTwilight(raw, vectors, indices),
   };
+};
+
+// Night periods as [startMs, endMs] pairs: each sunset up to the next sunrise. The lists
+// hold several near-identical times on flight days (the bird changes place), so the
+// periods are merged where they overlap. A sunset with no sunrise within a day (polar
+// summer/winter) is skipped.
+export const buildNightIntervals = (twilight) => {
+  const toMs = (values) =>
+    (Array.isArray(values) ? values : [])
+      .map((value) => Date.parse(value))
+      .filter((ms) => Number.isFinite(ms))
+      .sort((a, b) => a - b);
+  const sunrises = toMs(twilight?.sunrise);
+  const sunsets = toMs(twilight?.sunset);
+  if (!sunrises.length || !sunsets.length) {
+    return [];
+  }
+  const intervals = [];
+  let r = 0;
+  sunsets.forEach((sunset) => {
+    while (r < sunrises.length && sunrises[r] <= sunset) {
+      r += 1;
+    }
+    if (r < sunrises.length && sunrises[r] - sunset < MS_PER_DAY) {
+      intervals.push([sunset, sunrises[r]]);
+    }
+  });
+  const merged = [];
+  intervals.forEach(([start, end]) => {
+    const last = merged[merged.length - 1];
+    if (last && start <= last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      merged.push([start, end]);
+    }
+  });
+  return merged;
+};
+
+const expandMinuteSteps = (t0, steps) => {
+  const startMs = Date.parse(t0);
+  if (Number.isNaN(startMs)) {
+    return [];
+  }
+  const datetime = new Array(steps.length);
+  // Same strings as new Date(ms).toISOString() without ".000", but the date part is only
+  // formatted when the day changes: on a 170k-row track toISOString was ~200 ms.
+  let dayStart = NaN;
+  let dayPrefix = "";
+  const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
+  let ms = startMs;
+  for (let i = 0; i < steps.length; i += 1) {
+    ms += (Number(steps[i]) || 0) * 60000;
+    const ofDay = ms - dayStart;
+    if (!(ofDay >= 0 && ofDay < MS_PER_DAY) || ms % 1000 !== 0) {
+      const iso = new Date(ms).toISOString();
+      if (ms % 1000 !== 0 || iso.length !== 24) {
+        datetime[i] = iso.replace(".000Z", "Z");
+        dayStart = NaN;
+        continue;
+      }
+      dayStart = ms - (ms % MS_PER_DAY + MS_PER_DAY) % MS_PER_DAY;
+      dayPrefix = iso.slice(0, 11);
+    }
+    const sec = Math.floor((ms - dayStart) / 1000);
+    datetime[i] = `${dayPrefix}${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}Z`;
+  }
+  return datetime;
+};
+
+// Sorted unique sunrise/sunset times, from the compact `twilight` lists or, for data
+// packages processed in the browser, from the per-row sunrise/sunset columns.
+const normalizeTwilight = (raw, vectors, indices) => {
+  const unique = (values) =>
+    [...new Set(values.filter((value) => value && !Number.isNaN(Date.parse(value))))].sort();
+  if (raw.twilight && typeof raw.twilight === "object") {
+    return {
+      sunrise: unique(Array.isArray(raw.twilight.sunrise) ? raw.twilight.sunrise : []),
+      sunset: unique(Array.isArray(raw.twilight.sunset) ? raw.twilight.sunset : []),
+    };
+  }
+  const pickColumn = (key) => (Array.isArray(vectors[key]) ? indices.map((i) => vectors[key][i]) : []);
+  return { sunrise: unique(pickColumn("sunrise")), sunset: unique(pickColumn("sunset")) };
 };
 
 export const haversineKm = (a, b) => {
@@ -323,7 +411,42 @@ export const buildTimeTimeline = (data) => {
       },
     });
   }
+  addGroundAltitude(timeline);
   return timeline;
+};
+
+// Ground height under the bird, used to draw its height above the ground more exaggerated
+// than the terrain. On a stationary period (integer stap_id) the bird is on the ground, so
+// its pressure altitude is the ground height. During a flight (fractional stap_id) the
+// ground is interpolated in time between the take-off and landing heights. Without
+// stationary rows the ground is 0, which keeps the whole altitude at the bird scale.
+const addGroundAltitude = (timeline) => {
+  const isStationary = (entry) => {
+    const id = toNumber(entry.stapId);
+    return Number.isInteger(id) && id > 0;
+  };
+  let prev = null;
+  let next = -1;
+  timeline.forEach((entry, i) => {
+    if (isStationary(entry)) {
+      entry.ground = entry.altitude;
+      prev = entry;
+      return;
+    }
+    if (next < i) {
+      next = i + 1;
+      while (next < timeline.length && !isStationary(timeline[next])) {
+        next += 1;
+      }
+    }
+    const after = timeline[next];
+    if (prev && after && after.ms > prev.ms) {
+      const t = Math.min(Math.max((entry.ms - prev.ms) / (after.ms - prev.ms), 0), 1);
+      entry.ground = lerp(prev.altitude, after.altitude, t);
+    } else {
+      entry.ground = prev?.altitude ?? after?.altitude ?? 0;
+    }
+  });
 };
 
 export const buildDistanceTimeline = (timeline) => {
@@ -337,6 +460,8 @@ export const buildDistanceTimeline = (timeline) => {
   let lon = null;
   let count = 0;
   let altSum = 0;
+  let groundSum = 0;
+  let groundCount = 0;
   let surfSum = 0;
   let altCount = 0;
   let surfCount = 0;
@@ -355,6 +480,7 @@ export const buildDistanceTimeline = (timeline) => {
     const next = {
       ...lastEntry,
       altitude: Number.isFinite(avgAlt) ? avgAlt : lastEntry.altitude,
+      ground: groundCount ? groundSum / groundCount : lastEntry.ground,
       distanceKm: Math.round(distanceKm),
       metrics: {
         altitude: Number.isFinite(avgAlt) ? avgAlt : null,
@@ -364,7 +490,7 @@ export const buildDistanceTimeline = (timeline) => {
 
     out.push(next);
     prevOut = next;
-    count = altSum = surfSum = 0;
+    count = altSum = surfSum = groundSum = groundCount = 0;
     altCount = surfCount = 0;
   };
 
@@ -382,6 +508,7 @@ export const buildDistanceTimeline = (timeline) => {
 
     if (Number.isFinite(alt)) { altSum += alt; altCount += 1; }
     if (Number.isFinite(surf)) { surfSum += surf; surfCount += 1; }
+    if (Number.isFinite(e.ground)) { groundSum += e.ground; groundCount += 1; }
 
     count += 1;
     lastEntry = e;

@@ -58,7 +58,29 @@ export const formatLongDate = (value) => {
   return longDateFormatter.format(date);
 };
 
-export const colorForIndex = (index, total) => {
+// Distinct hue per index. Use theme "light" for a light background (deeper colors).
+export const colorForIndex = (index, total, theme = "dark") => {
   const hue = Math.round((index / Math.max(total, 1)) * 360);
-  return `hsl(${hue}, 70%, 60%)`;
+  return theme === "light" ? `hsl(${hue}, 75%, 40%)` : `hsl(${hue}, 70%, 60%)`;
+};
+
+// "Raphaël Nussbaumer" for a contributor: given and family names, or a "Family, Given"
+// title turned around. An organisation name (no comma) is kept as is.
+export const personDisplayName = (person) => {
+  if (person?.givenName && person?.familyName) {
+    return `${person.givenName} ${person.familyName}`;
+  }
+  const title = String(person?.title || "").trim();
+  const match = title.match(/^([^,]+),\s*([^,]+)$/);
+  return match ? `${match[2]} ${match[1]}` : title;
+};
+
+// Family name for short credits ("Wong et al."): the family name, the part of a
+// "Family, Given" title before the comma, or the last word of "Given Family".
+export const personFamilyName = (person) => {
+  if (person?.familyName) {
+    return person.familyName;
+  }
+  const title = String(person?.title || "").trim();
+  return title.includes(",") ? title.split(",")[0].trim() : title.split(/\s+/).pop();
 };

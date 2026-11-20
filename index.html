@@ -39,6 +39,18 @@
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-BJ5F1EELLR"></script>
     <script>
+      // Apply the saved light/dark theme before first paint (logic mirrors src/lib/theme.js).
+      (function () {
+        var pref = null;
+        try {
+          pref = localStorage.getItem("gle-theme");
+        } catch (e) {}
+        if (pref !== "light" && pref !== "dark") {
+          pref = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        document.documentElement.dataset.theme = pref;
+      })();
+
       (function (l) {
         if (l.search[1] === "/") {
           const decoded = l.search
