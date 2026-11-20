@@ -1152,113 +1152,160 @@ const filteredTags = computed(() => {
   return tags.value.filter((tag) => tagSearchText(tag).includes(query));
 });
 
-const ensurePressureCircleLayer = () => {
-  if (!mapInstance) {
+// The current position is a pulsing red dot. It is a Mapbox marker holding a canvas,
+// drawn exactly like the former map icon: an icon redrawn every frame made the whole map
+// re-render 60 times a second even when paused, and moving it meant a GeoJSON setData
+// (a worker round trip and symbol re-layout) on every playback frame.
+const PULSE_SIZE = 160; // canvas pixels, shown at half size in CSS pixels (pixelRatio 2)
+const PULSE_DURATION_MS = 1200;
+// Same zoom → size curve as the former icon-size expression.
+const PULSE_SIZE_STOPS = [
+  [2, 0.55],
+  [6, 0.75],
+  [10, 1],
+  [14, 1.3],
+];
+let pressureDot = null;
+const pulseIconSize = (zoom) => {
+  const stops = PULSE_SIZE_STOPS;
+  if (zoom <= stops[0][0]) {
+    return stops[0][1];
+  }
+  for (let i = 1; i < stops.length; i += 1) {
+    if (zoom <= stops[i][0]) {
+      const [z0, s0] = stops[i - 1];
+      const [z1, s1] = stops[i];
+      return s0 + ((zoom - z0) / (z1 - z0)) * (s1 - s0);
+    }
+  }
+  return stops[stops.length - 1][1];
+};
+const drawPressurePulse = () => {
+  const context = pressureDot?.context;
+  if (!context) {
     return;
   }
-  const emptyCollection = { type: "FeatureCollection", features: [] };
-  if (!mapInstance.getSource("tag-pressure-position")) {
-    mapInstance.addSource("tag-pressure-position", {
-      type: "geojson",
-      data: emptyCollection,
-    });
-  }
-  if (!mapInstance.hasImage("pressure-pulse-dot")) {
-    const size = 160;
-    const baseRadius = size * 0.2;
-    const pulseExtent = size * 0.55;
-    const pulseAlpha = 0.55;
-    const pulse = {
-      width: size,
-      height: size,
-      data: new Uint8Array(size * size * 4),
-      onAdd() {
-        const canvas = document.createElement("canvas");
-        canvas.width = this.width;
-        canvas.height = this.height;
-        this.context = canvas.getContext("2d", { willReadFrequently: true });
-      },
-      render() {
-        const context = this.context;
-        if (!context) {
-          return false;
-        }
-        const duration = 1200;
-        const t = (performance.now() % duration) / duration;
-        const radius = baseRadius;
-        const outerRadius = baseRadius + pulseExtent * t;
+  const size = PULSE_SIZE;
+  const baseRadius = size * 0.2;
+  const pulseExtent = size * 0.55;
+  const pulseAlpha = 0.55;
+  const t = (performance.now() % PULSE_DURATION_MS) / PULSE_DURATION_MS;
+  const outerRadius = baseRadius + pulseExtent * t;
 
-        context.clearRect(0, 0, this.width, this.height);
-        context.beginPath();
-        context.arc(size / 2, size / 2, outerRadius, 0, Math.PI * 2);
-        context.fillStyle = `rgba(239, 68, 68, ${pulseAlpha * (1 - t)})`;
-        context.fill();
+  context.clearRect(0, 0, size, size);
+  context.beginPath();
+  context.arc(size / 2, size / 2, outerRadius, 0, Math.PI * 2);
+  context.fillStyle = `rgba(239, 68, 68, ${pulseAlpha * (1 - t)})`;
+  context.fill();
 
-        context.beginPath();
-        context.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
-        context.fillStyle = PRESSURE_CURSOR_COLOR;
-        context.strokeStyle = "rgba(0,0,0,0.65)";
-        context.lineWidth = 6;
-        context.fill();
-        context.stroke();
-
-        const imageData = context.getImageData(0, 0, this.width, this.height);
-        this.data.set(imageData.data);
-        mapInstance.triggerRepaint();
-        return true;
-      },
-    };
-    mapInstance.addImage("pressure-pulse-dot", pulse, { pixelRatio: 2 });
+  context.beginPath();
+  context.arc(size / 2, size / 2, baseRadius, 0, Math.PI * 2);
+  context.fillStyle = PRESSURE_CURSOR_COLOR;
+  context.strokeStyle = "rgba(0,0,0,0.65)";
+  context.lineWidth = 6;
+  context.fill();
+  context.stroke();
+};
+const updatePulseSize = () => {
+  if (!pressureDot || !mapInstance) {
+    return;
   }
-  if (!mapInstance.getLayer("tag-pressure-position-circle")) {
-    mapInstance.addLayer({
-      id: "tag-pressure-position-circle",
-      type: "symbol",
-      source: "tag-pressure-position",
-      layout: {
-        "icon-image": "pressure-pulse-dot",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 2, 0.55, 6, 0.75, 10, 1, 14, 1.3],
-        "icon-allow-overlap": true,
-        "icon-ignore-placement": true,
-      },
-    });
+  const cssSize = `${(PULSE_SIZE / 2) * pulseIconSize(mapInstance.getZoom())}px`;
+  pressureDot.canvas.style.width = cssSize;
+  pressureDot.canvas.style.height = cssSize;
+};
+const runPulse = () => {
+  if (!pressureDot) {
+    return;
   }
+  pressureDot.rafId = null;
+  if (!pressureDot.shown) {
+    return;
+  }
+  drawPressurePulse();
+  pressureDot.rafId = requestAnimationFrame(runPulse);
+};
+const syncPressureDot = () => {
+  if (!pressureDot) {
+    return;
+  }
+  const shown = pressureDot.visible && pressureDot.hasPoint;
+  if (shown === pressureDot.shown) {
+    return;
+  }
+  pressureDot.shown = shown;
+  pressureDot.canvas.style.display = shown ? "" : "none";
+  if (shown && !pressureDot.rafId) {
+    pressureDot.rafId = requestAnimationFrame(runPulse);
+  } else if (!shown && pressureDot.rafId) {
+    cancelAnimationFrame(pressureDot.rafId);
+    pressureDot.rafId = null;
+  }
+};
+const ensurePressureDot = () => {
+  if (!mapInstance) {
+    return null;
+  }
+  if (pressureDot) {
+    return pressureDot;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = PULSE_SIZE;
+  canvas.height = PULSE_SIZE;
+  canvas.style.pointerEvents = "none";
+  canvas.style.display = "none";
+  const marker = new mapboxgl.Marker({ element: canvas, anchor: "center" });
+  pressureDot = {
+    canvas,
+    context: canvas.getContext("2d"),
+    marker,
+    added: false,
+    visible: true,
+    hasPoint: false,
+    shown: false,
+    rafId: null,
+  };
+  updatePulseSize();
+  mapInstance.on("zoom", updatePulseSize);
+  return pressureDot;
+};
+const removePressureDot = () => {
+  if (!pressureDot) {
+    return;
+  }
+  if (pressureDot.rafId) {
+    cancelAnimationFrame(pressureDot.rafId);
+  }
+  pressureDot.marker.remove();
+  mapInstance?.off("zoom", updatePulseSize);
+  pressureDot = null;
 };
 
 const updatePressureCircle = (point) => {
   if (!mapInstance || !mapReady) {
     return;
   }
-  ensurePressureCircleLayer();
-  const source = mapInstance.getSource("tag-pressure-position");
-  if (!source) {
+  const dot = ensurePressureDot();
+  if (!dot) {
     return;
   }
-  if (!point) {
-    source.setData({ type: "FeatureCollection", features: [] });
-    return;
+  dot.hasPoint = Boolean(point);
+  if (point) {
+    dot.marker.setLngLat([point.lon, point.lat]);
+    if (!dot.added) {
+      dot.marker.addTo(mapInstance);
+      dot.added = true;
+    }
   }
-  source.setData({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [point.lon, point.lat] },
-        properties: {},
-      },
-    ],
-  });
+  syncPressureDot();
 };
 
 const setPressureCircleVisibility = (visible) => {
-  if (!mapInstance || !mapInstance.getLayer("tag-pressure-position-circle")) {
+  if (!pressureDot) {
     return;
   }
-  mapInstance.setLayoutProperty(
-    "tag-pressure-position-circle",
-    "visibility",
-    visible ? "visible" : "none",
-  );
+  pressureDot.visible = visible;
+  syncPressureDot();
 };
 
 // The simulated paths are hidden in bird view: seen from low over the track they turn
@@ -2766,10 +2813,6 @@ const updateMap = () => {
       filter: ["==", ["get", "obsIndex"], -1],
     });
   }
-  if (mapInstance.getLayer("tag-pressure-position-circle")) {
-    mapInstance.moveLayer("tag-pressure-position-circle");
-  }
-
   if (!locationHandlersBound && mapInstance.getLayer("tag-observations-circles")) {
     locationHandlersBound = true;
     mapInstance.on("mousemove", "tag-observations-circles", (event) => {
@@ -3122,6 +3165,7 @@ onBeforeUnmount(() => {
     pressureLines.forEach((line) => threebox.remove(line));
     pressureLines = [];
   }
+  removePressureDot();
   if (mapInstance) {
     unbindCameraHandlers();
     mapInstance.remove();
