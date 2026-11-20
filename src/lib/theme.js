@@ -96,3 +96,24 @@ export const mapFog = (value) =>
 // Mapbox basemap for the current theme.
 export const basemapStyle = (value) =>
   value === "light" ? "mapbox://styles/mapbox/light-v11" : "mapbox://styles/mapbox/dark-v11";
+
+// Satellite basemap: EOX Sentinel-2 cloudless mosaic (https://s2maps.eu), cloud-free imagery
+// at ~10 m. Tiles are in Web Mercator; the data stop around zoom 14, so Mapbox overzooms past it.
+const S2CLOUDLESS_YEAR = 2025;
+export const satelliteStyle = {
+  version: 8,
+  sources: {
+    s2cloudless: {
+      type: "raster",
+      tiles: [
+        `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-${S2CLOUDLESS_YEAR}_3857/default/g/{z}/{y}/{x}.jpg`,
+      ],
+      tileSize: 256,
+      maxzoom: 14,
+      attribution:
+        `<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless – s2maps.eu by EOX IT Services GmbH</a> ` +
+        `(contains modified Copernicus Sentinel data ${S2CLOUDLESS_YEAR})`,
+    },
+  },
+  layers: [{ id: "s2cloudless", type: "raster", source: "s2cloudless" }],
+};

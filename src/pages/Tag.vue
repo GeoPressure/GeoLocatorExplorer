@@ -433,7 +433,7 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
-import { useTheme } from "../lib/theme";
+import { satelliteStyle, useTheme } from "../lib/theme";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
 import Plotly from "plotly.js-basic-dist-min";
@@ -3094,7 +3094,7 @@ onMounted(async () => {
   mapboxgl.accessToken = MAPBOX_TOKEN;
   mapInstance = new mapboxgl.Map({
     container: mapContainer.value,
-    style: "mapbox://styles/mapbox/satellite-v9",
+    style: satelliteStyle,
     center: [10, 15],
     zoom: 2.4,
     pitch: 0,
