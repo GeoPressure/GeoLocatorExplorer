@@ -164,6 +164,7 @@ const contributorsFromRecord = (record) =>
   (record?.metadata?.creators || record?.metadata?.contributors || []).map((person) => ({
     title: person.name || [person.given_name, person.family_name].filter(Boolean).join(" "),
     orcid: person.orcid ? `https://orcid.org/${person.orcid.replace(/^https?:\/\/orcid\.org\//, "")}` : "",
+    affiliation: cleanText(person.affiliation),
   }));
 
 const normalizeTaxa = (value) => {
@@ -245,13 +246,23 @@ const humanizeRelationType = (value) => {
 const normalizeRelatedIdentifiers = (value) =>
   (Array.isArray(value) ? value : [])
     .map((item) => ({
-      relationType: humanizeRelationType(item?.relationType),
+      relationType: humanizeRelationType(item?.relationType || item?.relation),
       relatedIdentifier: cleanText(item?.relatedIdentifier || item?.identifier),
-      relatedIdentifierType: cleanText(item?.relatedIdentifierType || item?.identifierType).toLowerCase(),
+      relatedIdentifierType: cleanText(item?.relatedIdentifierType || item?.identifierType || item?.scheme).toLowerCase(),
     }))
     .filter((item) => item.relatedIdentifier);
 
+// The Zenodo record is authoritative; the datapackage.json copy may be stale.
 const normalizeContributors = (value, record) => {
+  const fromRecord = contributorsFromRecord(record);
+  if (fromRecord.length) {
+    return fromRecord.map((person) => ({
+      title: person.title,
+      path: person.orcid,
+      roles: "",
+      organization: person.affiliation,
+    }));
+  }
   if (Array.isArray(value) && value.length) {
     return value.map((person) => ({
       title:
@@ -264,22 +275,10 @@ const normalizeContributors = (value, record) => {
       organization: cleanText(person?.organization),
     }));
   }
-  return contributorsFromRecord(record).map((person) => ({
-    title: person.title,
-    path: person.orcid,
-    roles: "",
-    organization: "",
-  }));
+  return [];
 };
 
 const normalizeLicenses = (value, metadata) => {
-  if (Array.isArray(value) && value.length) {
-    return value.map((license) => ({
-      title: cleanText(license?.title || license?.name),
-      name: cleanText(license?.name || license?.title),
-      path: cleanText(license?.path || license?.url),
-    }));
-  }
   if (metadata?.license) {
     return [
       {
@@ -288,6 +287,13 @@ const normalizeLicenses = (value, metadata) => {
         path: cleanText(metadata.license.url),
       },
     ];
+  }
+  if (Array.isArray(value) && value.length) {
+    return value.map((license) => ({
+      title: cleanText(license?.title || license?.name),
+      name: cleanText(license?.name || license?.title),
+      path: cleanText(license?.path || license?.url),
+    }));
   }
   return [];
 };
@@ -383,27 +389,29 @@ const buildProject = (datapackage, record, tables, recordId) => {
   const metadata = record?.metadata || {};
   const counts = normalizeCounts(datapackage.numberTags, tables);
   const embargo = record?.access?.embargo?.until || datapackage.embargo || "";
+  // Metadata comes from the Zenodo record first: datapackage.json may carry an older copy.
   return {
     id: projectId,
     concept_id: conceptId,
     record_id: recordId,
-    title: datapackage.title || metadata.title || `Zenodo record ${recordId}`,
-    description: cleanText(datapackage.description) || metadata.description || "",
-    version: datapackage.version || metadata.version || "",
-    created: datapackage.created || metadata.publication_date || record?.created || "",
+    title: metadata.title || datapackage.title || `Zenodo record ${recordId}`,
+    description: metadata.description || cleanText(datapackage.description) || "",
+    version: metadata.version || datapackage.version || "",
+    created: metadata.publication_date || record?.created || datapackage.created || "",
     status: record?.status || "published",
     access_status: record?.access?.status || datapackage.access_status || "",
     embargo,
     repository:
-      firstText(datapackage.codeRepository) ||
-      firstText(datapackage.repository) ||
       record?.custom_fields?.["code:codeRepository"] ||
       metadata?.custom?.["code:codeRepository"] ||
+      firstText(datapackage.codeRepository) ||
+      firstText(datapackage.repository) ||
       "",
-    homepage: datapackage.homepage || recordHomepage(record, recordId),
+    homepage: record?.links?.html || datapackage.homepage || recordHomepage(record, recordId),
     keywords:
+      (Array.isArray(metadata.keywords) && metadata.keywords.length ? metadata.keywords.join(", ") : "") ||
       datapackage.keywords ||
-      (Array.isArray(metadata.keywords) ? metadata.keywords.join(", ") : ""),
+      "",
     grants: datapackage.grants || "",
     bibliographicCitation: datapackage.bibliographicCitation || metadata.citation || "",
     taxonomic: normalizeSpeciesEntries(datapackage.species, datapackage.taxonomic || datapackage.taxonomicCoverage),
@@ -412,7 +420,7 @@ const buildProject = (datapackage, record, tables, recordId) => {
     contributors: normalizeContributors(datapackage.contributors, record),
     licenses: normalizeLicenses(datapackage.licenses, metadata),
     relatedIdentifiers: normalizeRelatedIdentifiers(
-      datapackage.relatedIdentifiers || metadata.related_identifiers,
+      metadata.related_identifiers || datapackage.relatedIdentifiers,
     ),
     temporal: datapackage.temporal || null,
     concept_doi: conceptId ? `https://doi.org/10.5281/zenodo.${conceptId}` : "",
