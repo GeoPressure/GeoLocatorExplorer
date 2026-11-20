@@ -432,7 +432,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { useTheme } from "../lib/theme";
 import { useRoute, useRouter } from "vue-router";
 import mapboxgl from "mapbox-gl";
@@ -485,18 +485,19 @@ const plotContainer = ref(null);
 const plotWrapper = ref(null);
 const isMapLoading = ref(true);
 // Night periods [startMs, endMs] for the shading on the plot.
-const nightIntervals = ref([]);
+const nightIntervals = shallowRef([]);
 const tags = ref([]);
 const selectedTag = ref("");
 const metrics = ref([]);
 const selectedMetric = ref("");
-const tagData = ref(null);
+// Large, always replaced as a whole: shallow refs, so Vue does not wrap every row in a proxy.
+const tagData = shallowRef(null);
 const searchQuery = ref("");
 const isMobile = ref(false);
 const isPanelCollapsed = ref(false);
 const tagMenuButton = ref(null);
-const timeTimeline = ref([]);
-const distanceTimeline = ref([]);
+const timeTimeline = shallowRef([]);
+const distanceTimeline = shallowRef([]);
 const hasPressurePath = ref(false);
 const isPressureLoading = ref(false);
 const currentPressureIndex = ref(0);
