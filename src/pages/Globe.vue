@@ -166,25 +166,18 @@
             </div>
 
             <p class="mt-4 text-sm text-fg/70 sm:mt-5">
-              This dataset is the result of a global community of researchers openly sharing their
-              data to advance research, conservation, and public outreach.
+              This
+              <a href="https://doi.org/10.5281/zenodo.18187092" target="_blank" rel="noreferrer" class="link">open-access dataset</a>
+              is the result of a global community of
+              <template v-if="stats.researchers">{{ stats.researchers }}</template>
+              researchers openly sharing their data to advance bird research, conservation, and
+              public outreach.
             </p>
             <p class="mt-3 text-sm text-fg/70">
-              Learn more at
-              <a
-                href="https://geopressure.org/GeoLocator-DP/"
-                target="_blank"
-                rel="noreferrer"
-                class="link"
-              >
-                geopressure.org/GeoLocator-DP
-              </a>
-            </p>
-            <p class="mt-3 text-sm text-fg/70">
-              Cite
-              <a href="https://doi.org/10.1038/s41597-026-08873-x" target="_blank" rel="noreferrer" class="link">Nussbaumer et al. (2026), Scientific Data</a>
-              and the
-              <a href="https://doi.org/10.5281/zenodo.18187092" target="_blank" rel="noreferrer" class="link">Master GeoLocator Data Package</a>.
+              Read more about the
+              <a href="https://geopressure.org/GeoLocator-DP/" target="_blank" rel="noreferrer" class="link">GeoLocator Data Package</a>
+              standard and the associated data paper
+              <a href="https://doi.org/10.1038/s41597-026-08873-x" target="_blank" rel="noreferrer" class="link">Nussbaumer et al. (2026)</a>.
             </p>
           </div>
         </div>
@@ -227,7 +220,7 @@ const speed = ref(1);
 const speedOptions = [0.5, 1, 2, 4];
 const currentDay = ref(1);
 const totalDays = ref(100);
-const stats = ref({ projects: 0, tags: 0, species: 0 });
+const stats = ref({ projects: 0, tags: 0, species: 0, researchers: 0 });
 
 let mapInstance;
 // True once the current basemap style has loaded (reset while switching theme).
@@ -766,6 +759,25 @@ onMounted(async () => {
     });
   });
 
+  // Count each person once across projects: by ORCID when given, else by family name + initial.
+  const nameKey = (c) =>
+    `${c.familyName || c.title || ""} ${(c.givenName || "").slice(0, 1)}`
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .trim();
+  const people = projects
+    .flatMap((project) => project.contributors || [])
+    .filter((c) => !(c.roles || []).includes("hostinginstitution"));
+  const orcidByName = new Map(
+    people.filter((c) => c.path?.includes("orcid.org")).map((c) => [nameKey(c), c.path]),
+  );
+  const researcherSet = new Set(
+    people.map((c) =>
+      c.path?.includes("orcid.org") ? c.path : orcidByName.get(nameKey(c)) || nameKey(c),
+    ),
+  );
+
   const projectsData = projects;
   const tagsCount = projectsData.reduce(
     (total, project) => total + Number((project.counts || project.numberTags).paths || 0),
@@ -775,6 +787,7 @@ onMounted(async () => {
     projects: projectsData.length,
     tags: tagsCount,
     species: speciesSet.size,
+    researchers: researcherSet.size,
   };
 
   if (styleReady) {
