@@ -311,6 +311,7 @@
             :disabled="!canPlayPressure"
             @click="togglePressurePlayback"
             :aria-label="isPressurePlaying ? 'Pause' : 'Play'"
+            :title="`${isPressurePlaying ? 'Pause' : 'Play'} (Space or K) · ← → step, J / L jump, , . one sample, 0–9 position, < > speed, B bird view`"
           >
             <svg
               v-if="!isPressurePlaying"
@@ -501,6 +502,9 @@ const isPressureLoading = ref(false);
 const currentPressureIndex = ref(0);
 const isPressurePlaying = ref(false);
 const isCameraFollowEnabled = ref(false);
+// Bird view: locked (default) = dragging orbits the camera around the bird, which stays in the
+// centre; unlocked = the normal Mapbox pan/rotate, so the bird can be off-centre.
+const isBirdViewLocked = ref(true);
 const sliderMode = ref("distance");
 const pressureLerp = ref(0);
 
@@ -565,10 +569,59 @@ const CAMERA_FLOOR_FALL_MS = 900;
 const BIRDVIEW_ZOOM_SMOOTH_MS = 120;
 const BIRDVIEW_MIN_CAMERA_DISTANCE_M = 5000;
 const BIRDVIEW_MAX_CAMERA_DISTANCE_M = 5000000;
-const BIRDVIEW_MODEL_URL = new URL(
+// Species models come from GeoPressure/bird-models (https://geopressure.org/bird-models/), served
+// by jsDelivr. We pin the major version only (@2): new birds and resolver fixes arrive with each
+// bird-models release, with no Explorer change; a breaking change gets a new major (@3) that we
+// adopt on purpose. bird-models ships its own resolver (client/bird-models.js) with the index:
+// exact species, synonym, same genus, then same family, else no model. Whatever fails (network,
+// schema, file) falls back to the generic bird, so bird view always has a marker.
+// VITE_BIRD_MODELS_BASE (e.g. http://localhost:8090/) tests a local bird-models checkout.
+const BIRD_MODELS_BASE =
+  import.meta.env.VITE_BIRD_MODELS_BASE || "https://cdn.jsdelivr.net/gh/GeoPressure/bird-models@2/";
+const BIRD_MODELS_PAGE = "https://geopressure.org/bird-models/";
+const GENERIC_BIRD_URL = new URL(
   "models/flying_bird.glb",
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
 ).toString();
+// { bm: resolver module, index } once loaded; null until then or on failure
+let birdModels = null;
+let birdviewModelsRequest = null;
+const loadBirdviewModels = () => {
+  birdviewModelsRequest ??= import(/* @vite-ignore */ `${BIRD_MODELS_BASE}client/bird-models.js`)
+    .then(async (bm) => ({ bm, index: await bm.loadIndex(BIRD_MODELS_BASE) }))
+    .then((r) => {
+      if (r.index) {
+        birdModels = r;
+        updatePressureMarker();
+      }
+    })
+    .catch(() => {});
+  return birdviewModelsRequest;
+};
+// Best bird-models match for a species, in the generic bird's axes (head +Y, back +Z).
+const resolveBirdModel = (scientificName) =>
+  birdModels ? birdModels.bm.resolve(birdModels.index, scientificName, { frame: "map-y-forward" }) : null;
+// Turn a bird-models file into the generic bird's axes. Applied to a group holding the content,
+// because the heading is set on model.model's own rotation every frame.
+const orientBirdModel = (model, quaternion) => {
+  const root = model.model || model;
+  // Threebox may hand back a copy of a cached model that was already turned: turning it again
+  // would undo it.
+  if (root.children.some((c) => c.name === "birdModelsAxes")) return;
+  const group = new THREE.Group();
+  group.name = "birdModelsAxes";
+  group.quaternion.fromArray(quaternion);
+  [...root.children].forEach((c) => group.add(c));
+  root.add(group);
+};
+// Species models that failed to load (network, missing file): those species use the generic bird.
+const failedBirdModelUrls = new Set();
+const birdviewModelUrl = (scientificName) => {
+  const url = resolveBirdModel(scientificName)?.url;
+  return url && !failedBirdModelUrls.has(url) ? url : GENERIC_BIRD_URL;
+};
+// Credit shown while a bird-models species model is on screen (CC BY 4.0).
+const birdModelCredit = ref(null);
 const PRESSURE_CURSOR_COLOR = "#ef4444";
 // Plotly draws to SVG with explicit colors, so it gets its own palette per theme.
 const PLOT_COLORS = {
@@ -588,6 +641,8 @@ const PLOT_COLORS = {
 const PRESSURE_PATH_COLOR = "#f8fafc";
 let savedCameraState = null;
 let pressureMarker3d = null;
+// Model URL pressureMarker3d was loaded from, so switching tag can swap in another species.
+let pressureMarkerUrl = null;
 let pressureMarkerLoading = false;
 let pressureMarkerMixer = null;
 let pressureMarkerMixerRafId = null;
@@ -759,6 +814,47 @@ const currentPressurePoint = computed(() => {
   return list[index] || null;
 });
 
+// Altitude and ground between two samples follow a Catmull-Rom curve (through every sample,
+// smooth in between) instead of straight segments, for the bird and the 3D path line alike.
+const PATH_SMOOTH_STEPS = 6;
+const catmullRom = (a, b, c, d, t) =>
+  0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t * t * t);
+const smoothValueAt = (list, i, t, key, { min = 0 } = {}) => {
+  const v = (j) => Number(list[Math.min(Math.max(j, 0), list.length - 1)]?.[key]) || 0;
+  const value = catmullRom(v(i - 1), v(i), v(i + 1), v(i + 2), t);
+  return min == null ? value : Math.max(min, value);
+};
+// Altitude and ground: monotone cubic (PCHIP-style) through every measurement, smooth between
+// them and never above or below its two neighbouring samples, so measured values are respected.
+const monotoneValueAt = (list, i, t, key) => {
+  const v = (j) => Number(list[Math.min(Math.max(j, 0), list.length - 1)]?.[key]) || 0;
+  const p0 = v(i - 1);
+  const p1 = v(i);
+  const p2 = v(i + 1);
+  const p3 = v(i + 2);
+  const slope = (a, b) => (a * b <= 0 ? 0 : (2 * a * b) / (a + b));
+  const m1 = slope(p1 - p0, p2 - p1);
+  const m2 = slope(p2 - p1, p3 - p2);
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const value =
+    (2 * t3 - 3 * t2 + 1) * p1 + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2 + (t3 - t2) * m2;
+  return Math.max(0, value);
+};
+// Position too, so the path turns in curves rather than corners (no clamp; lon/lat can be < 0).
+// Across the antimeridian a segment falls back to the straight interpolation.
+const smoothLonLatAt = (list, i, t) => {
+  const at = (j) => list[Math.min(Math.max(j, 0), list.length - 1)];
+  const lons = [at(i - 1), at(i), at(i + 1), at(i + 2)].map((p) => Number(p?.lon));
+  if (lons.some((l, k) => k && Math.abs(l - lons[k - 1]) > 180)) {
+    return { lon: lerp(at(i).lon, at(i + 1).lon, t), lat: lerp(at(i).lat, at(i + 1).lat, t) };
+  }
+  return {
+    lon: smoothValueAt(list, i, t, "lon", { min: null }),
+    lat: smoothValueAt(list, i, t, "lat", { min: null }),
+  };
+};
+
 const getInterpolatedPressurePoint = () => {
   const list = activeTimeline.value;
   if (!list.length) {
@@ -779,10 +875,15 @@ const getInterpolatedPressurePoint = () => {
   }
   return {
     ...current,
-    lon: lerp(current.lon, next.lon, t),
-    lat: lerp(current.lat, next.lat, t),
-    altitude: lerp(current.altitude, next.altitude, t),
-    ground: lerp(Number(current.ground) || 0, Number(next.ground) || 0, t),
+    ...(index + 1 < list.length
+      ? smoothLonLatAt(list, index, t)
+      : { lon: lerp(current.lon, next.lon, t), lat: lerp(current.lat, next.lat, t) }),
+    altitude:
+      index + 1 < list.length ? monotoneValueAt(list, index, t, "altitude") : lerp(current.altitude, next.altitude, t),
+    ground:
+      index + 1 < list.length
+        ? monotoneValueAt(list, index, t, "ground")
+        : lerp(Number(current.ground) || 0, Number(next.ground) || 0, t),
     distanceKm: lerp(current.distanceKm, next.distanceKm, t),
     ms:
       Number.isFinite(current.ms) && Number.isFinite(next.ms)
@@ -1241,11 +1342,26 @@ const ensureThreeboxPressureLine = () => {
   if (pressureLines.length) {
     return;
   }
-  const lineCoords = timeline.map((entry) => [
-    entry.lon,
-    entry.lat,
-    displayAltitude(entry),
-  ]);
+  // Densified with the same curve as the bird (see smoothValueAt), so the bird stays on the line.
+  const lineCoords = [];
+  timeline.forEach((entry, i) => {
+    const next = timeline[i + 1];
+    const steps = next ? PATH_SMOOTH_STEPS : 1;
+    for (let k = 0; k < steps; k += 1) {
+      const t = k / steps;
+      const pos = t ? smoothLonLatAt(timeline, i, t) : entry;
+      lineCoords.push([
+        pos.lon,
+        pos.lat,
+        t
+          ? displayAltitude({
+              altitude: monotoneValueAt(timeline, i, t, "altitude"),
+              ground: monotoneValueAt(timeline, i, t, "ground"),
+            })
+          : displayAltitude(entry),
+      ]);
+    }
+  });
   if (!lineCoords.length) {
     return;
   }
@@ -1293,6 +1409,7 @@ const updatePressureMarker = () => {
 
   if (!isCameraFollowEnabled.value) {
     setThreeboxVisibility(false);
+    birdModelCredit.value = null;
     return;
   }
 
@@ -1307,19 +1424,36 @@ const updatePressureMarker = () => {
     stopPressureMarkerAnimation();
     return;
   }
+  loadBirdviewModels();
+  const scientificName = tagDetails.value?.scientific_name;
+  const modelUrl = birdviewModelUrl(scientificName);
+  const birdMatch = modelUrl === GENERIC_BIRD_URL ? null : resolveBirdModel(scientificName);
+  // a relative's model (same genus or family) says so in the credit line
+  birdModelCredit.value = birdMatch
+    ? (birdMatch.match === "genus" || birdMatch.match === "family"
+        ? `${birdMatch.bird.english_name || birdMatch.bird.scientific_name} (related species) · `
+        : "") + birdMatch.attribution
+    : null;
+  if (pressureMarker3d && pressureMarkerUrl !== modelUrl) {
+    threebox.remove(pressureMarker3d);
+    pressureMarker3d = null;
+    stopPressureMarkerAnimation();
+  }
   if (!pressureMarker3d) {
     if (!pressureMarkerLoading) {
       pressureMarkerLoading = true;
+      pressureMarkerUrl = modelUrl;
       threebox.loadObj(
         {
           type: "gltf",
-          obj: BIRDVIEW_MODEL_URL,
+          obj: modelUrl,
           mtl: `${import.meta.env.BASE_URL}models/empty.mtl`,
           units: "meters",
           scale: 50000,
           anchor: "center",
         },
         (model) => {
+          if (birdMatch) orientBirdModel(model, birdMatch.quaternion);
           pressureMarker3d = model;
           pressureMarkerLoading = false;
           threebox.add(pressureMarker3d);
@@ -1328,6 +1462,18 @@ const updatePressureMarker = () => {
           applyMarkerRotation(getPressureBearing());
         },
       );
+      // Threebox never calls back when a model fails to load; its cache entry rejects instead.
+      // Fall back to the generic bird so bird view is never left without a marker.
+      threebox.objectsCache?.get(modelUrl)?.promise?.catch(() => {
+        if (modelUrl === GENERIC_BIRD_URL) return;
+        failedBirdModelUrls.add(modelUrl);
+        threebox?.objectsCache?.delete(modelUrl);
+        if (pressureMarkerUrl === modelUrl) {
+          pressureMarkerLoading = false;
+          pressureMarkerUrl = null;
+        }
+        updatePressureMarker();
+      });
     }
   }
   if (pressureMarker3d) {
@@ -1617,7 +1763,9 @@ const beginCameraInteraction = () => {
 };
 
 const onCameraPointerDown = () => {
-  if (!isCameraFollowEnabled.value) {
+  // Locked bird view has its own orbit drag (onOrbitPointerDown); flagging a Mapbox gesture here
+  // would stop the follow loop from moving the camera until the button is released.
+  if (!isCameraFollowEnabled.value || isBirdViewLocked.value) {
     return;
   }
   beginCameraInteraction();
@@ -1680,8 +1828,20 @@ const setBirdViewControls = (birdView) => {
   if (!mapInstance) {
     return;
   }
-  if (mapInstance.dragPan?.isEnabled()) {
-    mapInstance.dragPan.enable(birdView ? { maxSpeed: 0 } : undefined);
+  const locked = birdView && isBirdViewLocked.value;
+  ["dragPan", "dragRotate", "touchPitch"].forEach((name) => {
+    if (locked) {
+      mapInstance[name]?.disable();
+    } else if (name === "dragPan") {
+      mapInstance.dragPan?.enable(birdView ? { maxSpeed: 0 } : undefined);
+    } else {
+      mapInstance[name]?.enable();
+    }
+  });
+  if (locked) {
+    mapInstance.touchZoomRotate?.disableRotation();
+  } else {
+    mapInstance.touchZoomRotate?.enableRotation();
   }
   ["scrollZoom", "doubleClickZoom"].forEach((name) => {
     if (birdView) {
@@ -1691,6 +1851,110 @@ const setBirdViewControls = (birdView) => {
     }
   });
 };
+
+// Locked bird view: dragging turns the camera around the bird (left-right) and changes the
+// viewing angle (up-down) at the same distance, and the camera always looks at the bird.
+const BIRDVIEW_ORBIT_DEG_PER_PX = 0.3;
+const BIRDVIEW_MIN_ELEVATION_DEG = 3;
+const BIRDVIEW_MAX_ELEVATION_DEG = 85;
+const centreCameraRig = () => {
+  if (!cameraRig) {
+    cameraRig = defaultCameraRig();
+  }
+  cameraRig.relBearingDeg = normalizeAngle(cameraRig.relAzimuthDeg + 180);
+  cameraRig.pitchDeg = (Math.atan2(cameraRig.groundKm * 1000, cameraRig.heightM) * 180) / Math.PI;
+  lastAppliedCameraKey = "";
+};
+let orbitDrag = null;
+const onOrbitPointerDown = (event) => {
+  if (!isCameraFollowEnabled.value || !isBirdViewLocked.value) {
+    return;
+  }
+  if (event.pointerType === "mouse" && event.button !== 0 && event.button !== 2) {
+    return;
+  }
+  // Playback keeps running: the camera rig is relative to the bird, so it follows while turning.
+  orbitDrag = { x: event.clientX, y: event.clientY, id: event.pointerId };
+  event.currentTarget.setPointerCapture?.(event.pointerId);
+};
+const onOrbitPointerMove = (event) => {
+  if (!orbitDrag || event.pointerId !== orbitDrag.id) {
+    return;
+  }
+  const dx = event.clientX - orbitDrag.x;
+  const dy = event.clientY - orbitDrag.y;
+  orbitDrag.x = event.clientX;
+  orbitDrag.y = event.clientY;
+  if (!cameraRig) {
+    cameraRig = defaultCameraRig();
+  }
+  const distance = Math.hypot(cameraRig.groundKm * 1000, cameraRig.heightM);
+  let elevation = (Math.atan2(cameraRig.heightM, cameraRig.groundKm * 1000) * 180) / Math.PI;
+  elevation = Math.min(
+    BIRDVIEW_MAX_ELEVATION_DEG,
+    Math.max(BIRDVIEW_MIN_ELEVATION_DEG, elevation + dy * BIRDVIEW_ORBIT_DEG_PER_PX),
+  );
+  // same directions as Mapbox's right-drag rotate in free camera: right turns the view right,
+  // up tilts toward the horizon
+  cameraRig.relAzimuthDeg = normalizeAngle(cameraRig.relAzimuthDeg + dx * BIRDVIEW_ORBIT_DEG_PER_PX);
+  cameraRig.groundKm = (distance * Math.cos((elevation * Math.PI) / 180)) / 1000;
+  cameraRig.heightM = distance * Math.sin((elevation * Math.PI) / 180);
+  centreCameraRig();
+  requestFollowFrame();
+};
+const onOrbitPointerUp = (event) => {
+  if (!orbitDrag || (event && event.pointerId !== orbitDrag.id)) {
+    return;
+  }
+  orbitDrag = null;
+};
+// The camera lock as a map button under the fullscreen control, shown in bird view only.
+const LOCK_ICON = (locked) =>
+  `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="${locked ? "#0d9488" : "currentColor"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block;margin:auto">` +
+  `<rect x="5" y="11" width="14" height="10" rx="2"/>` +
+  (locked ? `<path d="M8 11V7a4 4 0 0 1 8 0v4"/>` : `<path d="M8 11V7a4 4 0 0 1 7.5-2"/>`) +
+  `</svg>`;
+class BirdLockControl {
+  onAdd() {
+    this.container = document.createElement("div");
+    this.container.className = "mapboxgl-ctrl mapboxgl-ctrl-group";
+    this.button = document.createElement("button");
+    this.button.type = "button";
+    this.button.addEventListener("click", () => {
+      isBirdViewLocked.value = !isBirdViewLocked.value;
+    });
+    this.container.appendChild(this.button);
+    this.update();
+    return this.container;
+  }
+  onRemove() {
+    this.container?.remove();
+  }
+  update() {
+    if (!this.button) {
+      return;
+    }
+    const locked = isBirdViewLocked.value;
+    this.container.style.display = isCameraFollowEnabled.value ? "" : "none";
+    this.button.setAttribute("aria-pressed", String(locked));
+    const label = locked
+      ? "Camera locked on the bird (drag to turn around it). Click for a free camera."
+      : "Free camera. Click to lock the camera on the bird.";
+    this.button.title = label;
+    this.button.setAttribute("aria-label", label);
+    this.button.innerHTML = LOCK_ICON(locked);
+  }
+}
+const birdLockControl = new BirdLockControl();
+watch([isBirdViewLocked, isCameraFollowEnabled], () => birdLockControl.update());
+
+watch(isBirdViewLocked, (locked) => {
+  setBirdViewControls(isCameraFollowEnabled.value);
+  if (locked && isCameraFollowEnabled.value) {
+    centreCameraRig();
+    requestFollowFrame();
+  }
+});
 
 const bindCameraHandlers = () => {
   if (cameraHandlersBound || !mapInstance) {
@@ -1704,6 +1968,10 @@ const bindCameraHandlers = () => {
   mapInstance.on("moveend", onCameraMoveEnd);
   mapInstance.getContainer().addEventListener("click", onNavControlClick, true);
   mapInstance.getCanvasContainer().addEventListener("wheel", onBirdViewWheel, { passive: false });
+  mapInstance.getCanvasContainer().addEventListener("pointerdown", onOrbitPointerDown);
+  mapInstance.getCanvasContainer().addEventListener("pointermove", onOrbitPointerMove);
+  mapInstance.getCanvasContainer().addEventListener("pointerup", onOrbitPointerUp);
+  mapInstance.getCanvasContainer().addEventListener("pointercancel", onOrbitPointerUp);
   window.addEventListener("mouseup", onCameraPointerUp);
   window.addEventListener("touchend", onCameraPointerUp, { passive: true });
   cameraHandlersBound = true;
@@ -1721,6 +1989,10 @@ const unbindCameraHandlers = () => {
   mapInstance.off("moveend", onCameraMoveEnd);
   mapInstance.getContainer().removeEventListener("click", onNavControlClick, true);
   mapInstance.getCanvasContainer().removeEventListener("wheel", onBirdViewWheel);
+  mapInstance.getCanvasContainer().removeEventListener("pointerdown", onOrbitPointerDown);
+  mapInstance.getCanvasContainer().removeEventListener("pointermove", onOrbitPointerMove);
+  mapInstance.getCanvasContainer().removeEventListener("pointerup", onOrbitPointerUp);
+  mapInstance.getCanvasContainer().removeEventListener("pointercancel", onOrbitPointerUp);
   window.removeEventListener("mouseup", onCameraPointerUp);
   window.removeEventListener("touchend", onCameraPointerUp);
   cameraHandlersBound = false;
@@ -2074,6 +2346,71 @@ const onPlotKeydown = (event) => {
   } else if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
     togglePressurePlayback();
+  }
+};
+
+// Page-wide playback keys, as in video players. Ignored while typing, with Ctrl/Cmd/Alt, and for
+// keys the plot or the map already handled (the plot has its own handler when focused; arrows on
+// a focused map pan it).
+//   Space / K  play or pause        ← / →  step back / forward (Shift: bigger step)
+//   J / L      big step back / fwd  , / .  one sample back / forward
+//   Home / 0   start   End  end     1–9    jump to 10–90 % of the track
+//   < / >      slower / faster      B      bird view on / off
+const onPlaybackKeydown = (event) => {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) {
+    return;
+  }
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest("input, select, textarea, [contenteditable=''], [contenteditable='true']")) {
+    return;
+  }
+  const length = activeTimeline.value.length;
+  if (!length) {
+    return;
+  }
+  const inMap = Boolean(target?.closest(".mapboxgl-map"));
+  const smallStep = Math.max(1, Math.round(length / 200));
+  const bigStep = Math.max(1, Math.round(length / 20));
+  const current = currentPressureIndex.value;
+  const key = event.key;
+  const seek = (index) => {
+    event.preventDefault();
+    seekToIndex(index);
+    updatePressureMarker();
+    updatePlotCursor();
+    requestFollowFrame();
+  };
+  if (key === " " || key === "k" || key === "K") {
+    if (target?.closest("button, a")) {
+      return; // Space on a focused button already clicks it
+    }
+    event.preventDefault();
+    togglePressurePlayback();
+  } else if ((key === "ArrowRight" || key === "ArrowLeft") && !inMap) {
+    const step = event.shiftKey ? bigStep : smallStep;
+    seek(current + (key === "ArrowRight" ? step : -step));
+  } else if (key === "l" || key === "L") {
+    seek(current + bigStep);
+  } else if (key === "j" || key === "J") {
+    seek(current - bigStep);
+  } else if (key === "." ) {
+    seek(current + 1);
+  } else if (key === ",") {
+    seek(current - 1);
+  } else if (key === "Home" || key === "0") {
+    seek(0);
+  } else if (key === "End") {
+    seek(length - 1);
+  } else if (/^[1-9]$/.test(key)) {
+    seek(Math.round(((length - 1) * Number(key)) / 10));
+  } else if (key === ">" || key === "<") {
+    event.preventDefault();
+    const ids = SPEED_PRESETS.map((preset) => preset.id);
+    const i = ids.indexOf(selectedSpeed.value);
+    selectedSpeed.value = ids[Math.min(ids.length - 1, Math.max(0, i + (key === ">" ? 1 : -1)))];
+  } else if ((key === "b" || key === "B") && hasPressurePath.value) {
+    event.preventDefault();
+    isCameraFollowEnabled.value = !isCameraFollowEnabled.value;
   }
 };
 
@@ -2658,6 +2995,7 @@ watch([timeTimeline, distanceTimeline], () => {
 });
 
 onMounted(async () => {
+  window.addEventListener("keydown", onPlaybackKeydown);
   await refreshTags();
   // Without a tag in the URL, show a random one rather than always the first.
   const randomTag = tags.value[Math.floor(Math.random() * tags.value.length)]?.tag_id;
@@ -2683,6 +3021,8 @@ onMounted(async () => {
     pitch: 0,
     bearing: 0,
     projection: "mercator",
+    customAttribution:
+      `<a href="${BIRD_MODELS_PAGE}" target="_blank" rel="noopener">Bird models © GeoPressure, CC BY 4.0</a>`,
   });
 
   mapInstance.on("load", () => {
@@ -2693,6 +3033,7 @@ onMounted(async () => {
       new mapboxgl.FullscreenControl({ container: mapWrapper.value || mapContainer.value }),
       "top-right",
     );
+    mapInstance.addControl(birdLockControl, "top-right");
     if (!isMobile.value) {
       mapInstance.addControl(
         new mapboxgl.ScaleControl({ maxWidth: 120, unit: "metric" }),
@@ -2751,6 +3092,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener("keydown", onPlaybackKeydown);
   if (resizeHandler) {
     window.removeEventListener("resize", resizeHandler);
   }
