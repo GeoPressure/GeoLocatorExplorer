@@ -25,6 +25,13 @@ jobs:
           npm ci --no-audit --no-fund
           npm run check
 
+      - name: Add social-media files 🎬
+        # Videos and stills live in a GitHub release (not in Git history); the unlisted /media page
+        # serves them from the site so they get the right content types
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download social-media-2026-11 --repo ${{ github.repository }} --dir dist/media --clobber
+
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
