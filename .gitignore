@@ -29,3 +29,6 @@ output/
 *.sln
 *.sw?
 /scripts/__pycache__
+
+# Claude Code local config and worktrees
+.claude/
