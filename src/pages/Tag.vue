@@ -754,9 +754,10 @@ const getPressureBearing = () => {
 // drawn at the terrain scale and the height above it at the bird scale, so the bird sits on
 // the terrain while stationary and climbs visibly in flight. It is never drawn below its own
 // altitude at the terrain scale, so it cannot sink into the exaggerated terrain.
-const displayAltitude = (point) => {
-  const altitude = Math.max(0, Number(point?.altitude) || 0);
-  const ground = Math.max(0, Number(point?.ground) || 0);
+const displayAltitude = (point) => displayAltitudeOf(point?.altitude, point?.ground);
+const displayAltitudeOf = (rawAltitude, rawGround) => {
+  const altitude = Math.max(0, Number(rawAltitude) || 0);
+  const ground = Math.max(0, Number(rawGround) || 0);
   return Math.max(
     altitude * TERRAIN_EXAGGERATION,
     ground * TERRAIN_EXAGGERATION + (altitude - ground) * BIRD_HEIGHT_EXAGGERATION,
@@ -853,14 +854,13 @@ const monotoneValueAt = (list, i, t, key) => {
   const p1 = v(i);
   const p2 = v(i + 1);
   const p3 = v(i + 2);
-  const slope = (a, b) => (a * b <= 0 ? 0 : (2 * a * b) / (a + b));
-  const m1 = slope(p1 - p0, p2 - p1);
-  const m2 = slope(p2 - p1, p3 - p2);
+  return Math.max(0, hermite(p1, p2, monotoneSlope(p1 - p0, p2 - p1), monotoneSlope(p2 - p1, p3 - p2), t));
+};
+const monotoneSlope = (a, b) => (a * b <= 0 ? 0 : (2 * a * b) / (a + b));
+const hermite = (p1, p2, m1, m2, t) => {
   const t2 = t * t;
   const t3 = t2 * t;
-  const value =
-    (2 * t3 - 3 * t2 + 1) * p1 + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2 + (t3 - t2) * m2;
-  return Math.max(0, value);
+  return (2 * t3 - 3 * t2 + 1) * p1 + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2 + (t3 - t2) * m2;
 };
 // Position too, so the path turns in curves rather than corners (no clamp; lon/lat can be < 0).
 // Across the antimeridian a segment falls back to the straight interpolation.
@@ -1414,11 +1414,7 @@ const ensureThreeboxPressureLine = () => {
   if (pressureLines.length) {
     return;
   }
-  const lineCoords = SMOOTH_3D_PATH_LINE ? smoothPathLineCoords(timeline) : timeline.map((entry) => [
-    entry.lon,
-    entry.lat,
-    displayAltitude(entry),
-  ]);
+  const lineCoords = smoothPathLineCoords(timeline);
   if (!lineCoords.length) {
     return;
   }
@@ -1432,32 +1428,50 @@ const ensureThreeboxPressureLine = () => {
   threebox.add(line);
 };
 
-// The 3D path line has always been drawn through the samples with straight segments
-// (updateMap built it before the densified version below could be). The densified line
-// follows the same curve as the bird but has 6x the vertices: ~1M on a 170k-row track,
-// ~700 ms to build when bird view opens. Off to keep the line as it is drawn today.
-const SMOOTH_3D_PATH_LINE = false;
-// Densified with the same curve as the bird (see smoothValueAt), so the bird stays on the line.
+// Densified with the same curve as the bird (smoothLonLatAt, monotoneValueAt), so the bird
+// stays on the line. Same maths, but the curve's neighbours and slopes are read once per
+// segment and no object is made per vertex: ~1M vertices on a 170k-row track.
 const smoothPathLineCoords = (timeline) => {
-  const lineCoords = [];
-  timeline.forEach((entry, i) => {
-    const next = timeline[i + 1];
-    const steps = next ? PATH_SMOOTH_STEPS : 1;
-    for (let k = 0; k < steps; k += 1) {
-      const t = k / steps;
-      const pos = t ? smoothLonLatAt(timeline, i, t) : entry;
-      lineCoords.push([
-        pos.lon,
-        pos.lat,
-        t
-          ? displayAltitude({
-              altitude: monotoneValueAt(timeline, i, t, "altitude"),
-              ground: monotoneValueAt(timeline, i, t, "ground"),
-            })
-          : displayAltitude(entry),
-      ]);
+  const n = timeline.length;
+  const steps = PATH_SMOOTH_STEPS;
+  const lineCoords = new Array(n ? (n - 1) * steps + 1 : 0);
+  const at = (j) => timeline[j < 0 ? 0 : j >= n ? n - 1 : j];
+  const num = (entry, key) => Number(entry?.[key]) || 0;
+  let out = 0;
+  for (let i = 0; i < n; i += 1) {
+    const entry = timeline[i];
+    lineCoords[out++] = [entry.lon, entry.lat, displayAltitude(entry)];
+    if (i + 1 >= n) {
+      break;
     }
-  });
+    const e0 = at(i - 1);
+    const e2 = at(i + 1);
+    const e3 = at(i + 2);
+    const lons = [Number(e0?.lon), Number(entry?.lon), Number(e2?.lon), Number(e3?.lon)];
+    const straight =
+      Math.abs(lons[1] - lons[0]) > 180 ||
+      Math.abs(lons[2] - lons[1]) > 180 ||
+      Math.abs(lons[3] - lons[2]) > 180;
+    const lon = [num(e0, "lon"), num(entry, "lon"), num(e2, "lon"), num(e3, "lon")];
+    const lat = [num(e0, "lat"), num(entry, "lat"), num(e2, "lat"), num(e3, "lat")];
+    const alt = [num(e0, "altitude"), num(entry, "altitude"), num(e2, "altitude"), num(e3, "altitude")];
+    const gnd = [num(e0, "ground"), num(entry, "ground"), num(e2, "ground"), num(e3, "ground")];
+    const altM1 = monotoneSlope(alt[1] - alt[0], alt[2] - alt[1]);
+    const altM2 = monotoneSlope(alt[2] - alt[1], alt[3] - alt[2]);
+    const gndM1 = monotoneSlope(gnd[1] - gnd[0], gnd[2] - gnd[1]);
+    const gndM2 = monotoneSlope(gnd[2] - gnd[1], gnd[3] - gnd[2]);
+    for (let k = 1; k < steps; k += 1) {
+      const t = k / steps;
+      lineCoords[out++] = [
+        straight ? lerp(entry.lon, e2.lon, t) : catmullRom(lon[0], lon[1], lon[2], lon[3], t),
+        straight ? lerp(entry.lat, e2.lat, t) : catmullRom(lat[0], lat[1], lat[2], lat[3], t),
+        displayAltitudeOf(
+          Math.max(0, hermite(alt[1], alt[2], altM1, altM2, t)),
+          Math.max(0, hermite(gnd[1], gnd[2], gndM1, gndM2, t)),
+        ),
+      ];
+    }
+  }
   return lineCoords;
 };
 
