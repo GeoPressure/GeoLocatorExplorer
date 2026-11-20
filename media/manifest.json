@@ -1,0 +1,487 @@
+{
+ "title": "Migration videos for social media",
+ "updated": "2026-11-20",
+ "release": "https://github.com/GeoPressure/GeoLocatorExplorer/releases/tag/social-media-2026-11",
+ "zip": "social-media-2026-11.zip",
+ "credits": {
+  "habitat": "Area of Habitat maps, Lumbierres et al. 2022 (Scientific Data 9:749), from BirdLife International & HBW range maps",
+  "illustration": "huashu-bird-sticker by Huashu, CC BY 4.0, AI-generated, https://github.com/alchaincyf/huashu-bird-sticker"
+ },
+ "species": [
+  {
+   "code": "grrwar1",
+   "name": "Great Reed Warbler",
+   "scientific_name": "Acrocephalus arundinaceus",
+   "n_birds": 32,
+   "packages": [
+    {
+     "cite": "Rime et al. 2025",
+     "doi": "10.5281/zenodo.17084709",
+     "title": "GeoLocator Data Package: Great Reed Warbler tracks from three European populations"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 15,
+    "departure_spring": 23,
+    "duration_factor": 1.95
+   },
+   "note": null,
+   "files": {
+    "video": "grrwar1.mp4",
+    "poster": "grrwar1_poster.png",
+    "year": "grrwar1_year.png"
+   },
+   "caption": "Data: Rime et al. 2025, doi:10.5281/zenodo.17084709, CC BY 4.0"
+  },
+  {
+   "code": "norwhe",
+   "name": "Northern Wheatear",
+   "scientific_name": "Oenanthe oenanthe",
+   "n_birds": 29,
+   "packages": [
+    {
+     "cite": "Nussbaumer & Rime 2024",
+     "doi": "10.5281/zenodo.14641780",
+     "title": "Geolocator Data Package: Trajectories of Northern Wheatears breeding in Val Piora (Switzerland) and Val Troncea (Italy)"
+    },
+    {
+     "cite": "Doniol-Valcroze et al. 2025",
+     "doi": "10.5281/zenodo.17631331",
+     "title": "GeoLocator Data Package: MIGRATLANE - Monitoring and studying birds in the North-East Atlantic Arc"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 11,
+    "departure_spring": 20,
+    "duration_factor": 1.53
+   },
+   "note": null,
+   "files": {
+    "video": "norwhe.mp4",
+    "poster": "norwhe_poster.png",
+    "year": "norwhe_year.png"
+   },
+   "caption": "Data: Nussbaumer & Rime 2024, doi:10.5281/zenodo.14641780; Doniol-Valcroze et al. 2025, doi:10.5281/zenodo.17631331, CC BY 4.0"
+  },
+  {
+   "code": "hoopoe",
+   "name": "Eurasian Hoopoe",
+   "scientific_name": "Upupa epops",
+   "n_birds": 28,
+   "packages": [
+    {
+     "cite": "Schaub et al. 2026",
+     "doi": "10.5281/zenodo.23404056",
+     "title": "GeoLocator Data Package: Swiss Hoopoes"
+    },
+    {
+     "cite": "Zacmane et al. 2026",
+     "doi": "10.5281/zenodo.23211897",
+     "title": "GeoLocator Data Package: Eurasian Hoopoes from Germany"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 12,
+    "departure_spring": 15,
+    "duration_factor": 1.49
+   },
+   "note": null,
+   "files": {
+    "video": "hoopoe.mp4",
+    "poster": "hoopoe_poster.png",
+    "year": "hoopoe_year.png"
+   },
+   "caption": "Data: Schaub et al. 2026, doi:10.5281/zenodo.23404056; Zacmane et al. 2026, doi:10.5281/zenodo.23211897, CC BY 4.0"
+  },
+  {
+   "code": "eursta",
+   "name": "European Starling",
+   "scientific_name": "Sturnus vulgaris",
+   "n_birds": 41,
+   "packages": [
+    {
+     "cite": "Briedis et al. 2026",
+     "doi": "10.5281/zenodo.18467922",
+     "title": "Geolocator tracking study of Common Starlings in Latvia"
+    },
+    {
+     "cite": "Briedis & Heldbjerg 2026",
+     "doi": "10.5281/zenodo.22012040",
+     "title": "GeoLocator Data Package: Common Starling from Denmark"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 31,
+    "departure_spring": 11,
+    "duration_factor": 2.29
+   },
+   "note": "Habitat covers most of the frame, so the simulated birds are hard to see.",
+   "embargo": [
+    {
+     "cite": "Briedis et al. 2026",
+     "until": "2030-01-01"
+    },
+    {
+     "cite": "Briedis & Heldbjerg 2026",
+     "until": "2030-01-01"
+    }
+   ],
+   "files": {
+    "blur": "eursta_blur.jpg"
+   }
+  },
+  {
+   "code": "thrnig1",
+   "name": "Thrush Nightingale",
+   "scientific_name": "Luscinia luscinia",
+   "n_birds": 17,
+   "packages": [
+    {
+     "cite": "Macías-Torres & Hedenström 2026",
+     "doi": "10.5281/zenodo.18340651",
+     "title": "Geolocator Data Package: Thursh nightingale Luscinia Luscinia in South Sweden"
+    },
+    {
+     "cite": "Adamik et al. 2026",
+     "doi": "10.5281/zenodo.21936755",
+     "title": "GeoLocator Data Package: Thrush Nightingales from Poland"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 9,
+    "departure_spring": 12,
+    "duration_factor": 1.33
+   },
+   "note": null,
+   "embargo": [
+    {
+     "cite": "Adamik et al. 2026",
+     "until": "2029-05-20"
+    }
+   ],
+   "files": {
+    "blur": "thrnig1_blur.jpg"
+   }
+  },
+  {
+   "code": "eupfly1",
+   "name": "European Pied Flycatcher",
+   "scientific_name": "Ficedula hypoleuca",
+   "n_birds": 13,
+   "packages": [
+    {
+     "cite": "Burgess et al. 2026",
+     "doi": "10.5281/zenodo.17703424",
+     "title": "GeoLocator Data Package: UK Pied Flycatcher"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 9,
+    "departure_spring": 10,
+    "duration_factor": 1.37
+   },
+   "note": null,
+   "embargo": [
+    {
+     "cite": "Burgess et al. 2026",
+     "until": "2027-05-01"
+    }
+   ],
+   "files": {
+    "blur": "eupfly1_blur.jpg"
+   }
+  },
+  {
+   "code": "swawar",
+   "name": "Swainson's Warbler",
+   "scientific_name": "Limnothlypis swainsonii",
+   "n_birds": 13,
+   "packages": [
+    {
+     "cite": "Rhyne 2026",
+     "doi": "10.5281/zenodo.18339365",
+     "title": "GeoLocator Data Package: Swainson's Warbler Migration Ecology"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 11,
+    "departure_spring": 11,
+    "duration_factor": 1.94
+   },
+   "note": null,
+   "files": {
+    "video": "swawar.mp4",
+    "poster": "swawar_poster.png",
+    "year": "swawar_year.png"
+   },
+   "caption": "Data: Rhyne 2026, doi:10.5281/zenodo.18339365, CC BY 4.0"
+  },
+  {
+   "code": "rebshr1",
+   "name": "Red-backed Shrike",
+   "scientific_name": "Lanius collurio",
+   "n_birds": 10,
+   "packages": [
+    {
+     "cite": "Macías Torres et al. 2026",
+     "doi": "10.5281/zenodo.22294832",
+     "title": "Geolocator Data Package: Red-backed Shrike in Denmark"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 13,
+    "departure_spring": 12,
+    "duration_factor": 1.4
+   },
+   "note": null,
+   "files": {
+    "video": "rebshr1.mp4",
+    "poster": "rebshr1_poster.png",
+    "year": "rebshr1_year.png"
+   },
+   "caption": "Data: Macías Torres et al. 2026, doi:10.5281/zenodo.22294832, CC BY 4.0"
+  },
+  {
+   "code": "eurwry",
+   "name": "Eurasian Wryneck",
+   "scientific_name": "Jynx torquilla",
+   "n_birds": 9,
+   "packages": [
+    {
+     "cite": "Briedis et al. 2026",
+     "doi": "10.5281/zenodo.19166042",
+     "title": "GeoLocator Data Package: Eurasian Wrynecks from Germany"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 15,
+    "departure_spring": 11,
+    "duration_factor": 1.6
+   },
+   "note": null,
+   "embargo": [
+    {
+     "cite": "Briedis et al. 2026",
+     "until": "2028-10-22"
+    }
+   ],
+   "files": {
+    "blur": "eurwry_blur.jpg"
+   }
+  },
+  {
+   "code": "eurrol1",
+   "name": "European Roller",
+   "scientific_name": "Coracias garrulus",
+   "n_birds": 8,
+   "packages": [
+    {
+     "cite": "Wong et al. 2025",
+     "doi": "10.5281/zenodo.17882693",
+     "title": "Geolocator Data Package: European Rollers (Coracias garrulus) in Hungary, Romania and Montenegro"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 13,
+    "departure_spring": 19,
+    "duration_factor": 1.45
+   },
+   "note": null,
+   "embargo": [
+    {
+     "cite": "Wong et al. 2025",
+     "until": "2028-10-21"
+    }
+   ],
+   "files": {
+    "blur": "eurrol1_blur.jpg"
+   }
+  },
+  {
+   "code": "ibechi2",
+   "name": "Iberian Chiffchaff",
+   "scientific_name": "Phylloscopus ibericus",
+   "n_birds": 7,
+   "packages": [
+    {
+     "cite": "Caballero-Lopez & Bensch 2026",
+     "doi": "10.5281/zenodo.19821967",
+     "title": "GeoLocator Data Package: Common Chiffchaff and Iberian Chiffchaff in Spain"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 14,
+    "departure_spring": 11,
+    "duration_factor": 1.54
+   },
+   "note": null,
+   "embargo": [
+    {
+     "cite": "Caballero-Lopez & Bensch 2026",
+     "until": "2029-12-31"
+    }
+   ],
+   "files": {
+    "blur": "ibechi2_blur.jpg"
+   }
+  },
+  {
+   "code": "comnig1",
+   "name": "Common Nightingale",
+   "scientific_name": "Luscinia megarhynchos",
+   "n_birds": 6,
+   "packages": [
+    {
+     "cite": "Doniol-Valcroze et al. 2025",
+     "doi": "10.5281/zenodo.17631331",
+     "title": "GeoLocator Data Package: MIGRATLANE - Monitoring and studying birds in the North-East Atlantic Arc"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 13,
+    "departure_spring": 16,
+    "duration_factor": 1.74
+   },
+   "note": null,
+   "files": {
+    "video": "comnig1.mp4",
+    "poster": "comnig1_poster.png",
+    "year": "comnig1_year.png"
+   },
+   "caption": "Data: Doniol-Valcroze et al. 2025, doi:10.5281/zenodo.17631331, CC BY 4.0"
+  },
+  {
+   "code": "yerwar",
+   "name": "Yellow-rumped Warbler",
+   "scientific_name": "Setophaga coronata",
+   "n_birds": 6,
+   "packages": [
+    {
+     "cite": "Szarmach et al. 2026",
+     "doi": "10.5281/zenodo.18376815",
+     "title": "GeoLocator Data Package: Myrtle Warbler (Anchorage, AK)"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 12,
+    "departure_spring": 12,
+    "duration_factor": 1.54
+   },
+   "note": "The published Area of Habitat maps are wrong for this species, so the video shows the BirdLife ranges.",
+   "files": {
+    "video": "yerwar.mp4",
+    "poster": "yerwar_poster.png",
+    "year": "yerwar_year.png"
+   },
+   "caption": "Data: Szarmach et al. 2026, doi:10.5281/zenodo.18376815, CC BY 4.0"
+  },
+  {
+   "code": "comchi1",
+   "name": "Common Chiffchaff",
+   "scientific_name": "Phylloscopus collybita",
+   "n_birds": 5,
+   "packages": [
+    {
+     "cite": "Caballero-Lopez & Bensch 2026",
+     "doi": "10.5281/zenodo.19821967",
+     "title": "GeoLocator Data Package: Common Chiffchaff and Iberian Chiffchaff in Spain"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 13,
+    "departure_spring": 12,
+    "duration_factor": 1.71
+   },
+   "note": "Habitat covers most of the frame, so the simulated birds are hard to see.",
+   "embargo": [
+    {
+     "cite": "Caballero-Lopez & Bensch 2026",
+     "until": "2029-12-31"
+    }
+   ],
+   "files": {
+    "blur": "comchi1_blur.jpg"
+   }
+  },
+  {
+   "code": "eurnig1",
+   "name": "Eurasian Nightjar",
+   "scientific_name": "Caprimulgus europaeus",
+   "n_birds": 4,
+   "packages": [
+    {
+     "cite": "Lathouwers et al. 2026",
+     "doi": "10.5281/zenodo.18336618",
+     "title": "GeoLocator Data Package: Eurasian Nightjar from Mongolia"
+    },
+    {
+     "cite": "Doniol-Valcroze et al. 2025",
+     "doi": "10.5281/zenodo.17631331",
+     "title": "GeoLocator Data Package: MIGRATLANE - Monitoring and studying birds in the North-East Atlantic Arc"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 14,
+    "departure_spring": 13,
+    "duration_factor": 1.58
+   },
+   "note": null,
+   "files": {
+    "video": "eurnig1.mp4",
+    "poster": "eurnig1_poster.png",
+    "year": "eurnig1_year.png"
+   },
+   "caption": "Data: Lathouwers et al. 2026, doi:10.5281/zenodo.18336618; Doniol-Valcroze et al. 2025, doi:10.5281/zenodo.17631331, CC BY 4.0"
+  },
+  {
+   "code": "grewhi1",
+   "name": "Greater Whitethroat",
+   "scientific_name": "Curruca communis",
+   "n_birds": 4,
+   "packages": [
+    {
+     "cite": "Doniol-Valcroze et al. 2025",
+     "doi": "10.5281/zenodo.17631331",
+     "title": "GeoLocator Data Package: MIGRATLANE - Monitoring and studying birds in the North-East Atlantic Arc"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 15,
+    "departure_spring": 24,
+    "duration_factor": 1.62
+   },
+   "note": null,
+   "files": {
+    "video": "grewhi1.mp4",
+    "poster": "grewhi1_poster.png",
+    "year": "grewhi1_year.png"
+   },
+   "caption": "Data: Doniol-Valcroze et al. 2025, doi:10.5281/zenodo.17631331, CC BY 4.0"
+  },
+  {
+   "code": "snobun",
+   "name": "Snow Bunting",
+   "scientific_name": "Plectrophenax nivalis",
+   "n_birds": 4,
+   "packages": [
+    {
+     "cite": "Sjöberg et al. 2025",
+     "doi": "10.5281/zenodo.17779417",
+     "title": "GeoLocator Data Package: Snow Bunting from Svalbard"
+    }
+   ],
+   "spread": {
+    "departure_autumn": 13,
+    "departure_spring": 14,
+    "duration_factor": 1.58
+   },
+   "note": null,
+   "files": {
+    "video": "snobun.mp4",
+    "poster": "snobun_poster.png",
+    "year": "snobun_year.png"
+   },
+   "caption": "Data: Sjöberg et al. 2025, doi:10.5281/zenodo.17779417, CC BY 4.0"
+  }
+ ]
+}
