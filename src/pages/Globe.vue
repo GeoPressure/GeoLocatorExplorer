@@ -180,6 +180,12 @@
                 geopressure.org/GeoLocator-DP
               </a>
             </p>
+            <p class="mt-3 text-sm text-fg/70">
+              Cite
+              <a href="https://doi.org/10.1038/s41597-026-08873-x" target="_blank" rel="noreferrer" class="link">Nussbaumer et al. (2026), Scientific Data</a>
+              and the
+              <a href="https://doi.org/10.5281/zenodo.18187092" target="_blank" rel="noreferrer" class="link">Master GeoLocator Data Package</a>.
+            </p>
           </div>
         </div>
       </div>
