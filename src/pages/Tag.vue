@@ -569,16 +569,16 @@ const CAMERA_FLOOR_FALL_MS = 900;
 const BIRDVIEW_ZOOM_SMOOTH_MS = 120;
 const BIRDVIEW_MIN_CAMERA_DISTANCE_M = 5000;
 const BIRDVIEW_MAX_CAMERA_DISTANCE_M = 5000000;
-// Species models come from GeoPressure/bird-models (https://geopressure.org/bird-models/), served
-// by jsDelivr. We pin the major version only (@2): new birds and resolver fixes arrive with each
-// bird-models release, with no Explorer change; a breaking change gets a new major (@3) that we
-// adopt on purpose. bird-models ships its own resolver (client/bird-models.js) with the index:
-// exact species, synonym, same genus, then same family, else no model. Whatever fails (network,
-// schema, file) falls back to the generic bird, so bird view always has a marker.
-// VITE_BIRD_MODELS_BASE (e.g. http://localhost:8090/) tests a local bird-models checkout.
-const BIRD_MODELS_BASE =
-  import.meta.env.VITE_BIRD_MODELS_BASE || "https://cdn.jsdelivr.net/gh/GeoPressure/bird-models@2/";
-const BIRD_MODELS_PAGE = "https://geopressure.org/bird-models/";
+// Species models come from GeoPressure/GeoBirdModel, served by its GitHub Pages site (main branch).
+// Not jsDelivr: the repo is over jsDelivr's 50 MB package limit, so every file there returns 403.
+// New birds and resolver fixes arrive with each GeoBirdModel push, with no Explorer change; the
+// resolver checks the index schema ("bird-models/2") and a breaking change bumps it. GeoBirdModel
+// ships its own resolver (client/bird-models.js) with the index (models.json): exact species,
+// synonym, same genus, then same family, else no model. Whatever fails (network, schema, file)
+// falls back to the generic bird, so bird view always has a marker.
+// VITE_BIRD_MODELS_BASE (e.g. http://localhost:8090/) tests a local GeoBirdModel checkout.
+const BIRD_MODELS_PAGE = "https://geopressure.org/GeoBirdModel/";
+const BIRD_MODELS_BASE = import.meta.env.VITE_BIRD_MODELS_BASE || BIRD_MODELS_PAGE;
 const GENERIC_BIRD_URL = new URL(
   "models/flying_bird.glb",
   `${window.location.origin}${import.meta.env.BASE_URL || "/"}`,
